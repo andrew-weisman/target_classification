@@ -3,6 +3,7 @@
 # Run this script like:
 #
 #   (source /data/BIDS-HPC/private/projects/dmi/checkout/target_class_lib.sh; get_file_placeholders "https://target-data.nci.nih.gov/" "Controlled/ Public/" "/data/BIDS-HPC/private/projects/dmi/data/" |& tee -a all_dirs.txt)
+#   (source /data/BIDS-HPC/private/projects/dmi/checkout/target_class_lib.sh; get_file_placeholders "https://target-data.nci.nih.gov/Public/RT/mRNA-seq/" "L3/ METADATA/" "/data/BIDS-HPC/private/projects/dmi/data/" |& tee -a all_dirs.txt)
 #
 
 # Main recursive function to process all the directories and files at the input URL; probably don't call this function directly
@@ -79,6 +80,7 @@ get_file_placeholders() {
     # Sample calls
     # get_file_placeholders "https://target-data.nci.nih.gov/" "Controlled/ Public/" "/data/BIDS-HPC/private/projects/dmi/data/"
     # get_file_placeholders "https://target-data.nci.nih.gov/Controlled/AML/mRNA-seq/L3/structural/" "BCCA/ NCI-Meerzaman/" "/data/BIDS-HPC/private/projects/dmi/data/"
+    # get_file_placeholders "https://target-data.nci.nih.gov/Public/RT/mRNA-seq/" "L3/ METADATA/" "/data/BIDS-HPC/private/projects/dmi/data/"
 
     # Parameters
     base_url=$1
@@ -108,6 +110,7 @@ get_file_placeholders() {
     echo "End date/time on $(hostname): $(date)"
 
     # Create two other lists of the files/dirs in the tree we just created
+    mv "$datadir/wget_err.txt" "$working_dir"
     tree > "$working_dir/all_files_and_dirs.txt"
     find . -type f > "$working_dir/all_files_in_tree.txt"
 
