@@ -195,8 +195,13 @@ extract_data() {
             echo "ERROR: Datafile '$filename' does not exist"
             exit 7
         else
+            # Data to add to metadata file: $base_url, $datadir, $file_index, $(pwd)
+            # Data to add to CSV file: $filename, $weblink
             ls "$filename"
         fi
     done
 
 }
+
+
+extract_data "https://target-data.nci.nih.gov/" "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
