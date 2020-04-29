@@ -197,7 +197,7 @@ extract_data() {
         else
             # Data to add to metadata file: $base_url, $datadir, $file_index, $(pwd)
             # Data to add to CSV file: $filename, $weblink
-            ls "$filename"
+            echo "$filename" "$weblink"
         fi
     done
 
