@@ -128,6 +128,13 @@ get_file_placeholders() {
 }
 
 
+# This function should not in general be called directly; it generates the list of datafiles from the file index
+get_datafile_list() {
+    file_index=$1
+    grep "/L3/" "$file_index" | awk -v FS="____" '{print $1}' | grep -E ".*\.gene\.quantification\.txt$|.*\.gene\.fpkm\.txt$|chla\.org_NBL\.HumanExon\.Level-3\.BER\..*_gene\..*\.txt$|.*\.expression\.txt$" | grep -iv "/archive" | awk '{sub(/^\.\//,""); printf("%s\n",$0)}' | sort -u
+}
+
+
 # Main function to call directly in order to download the appropriate files from the TARGET site
 download_files() {
 
@@ -143,7 +150,8 @@ download_files() {
     datadir="${datadir}tree/"
 
     # Get the list of files to download from the full list of indexed files
-    datafiles=$(grep "/L3/" "$file_index" | awk -v FS="____" '{print $1}' | grep -E ".*\.gene\.quantification\.txt$|.*\.gene\.fpkm\.txt$|chla\.org_NBL\.HumanExon\.Level-3\.BER\..*_gene\..*\.txt$|.*\.expression\.txt$" | grep -iv "/archive" | awk '{sub(/^\.\//,""); printf("%s\n",$0)}' | sort -u)
+    datafiles=$(get_datafile_list "$file_index")
+    #datafiles=$(grep "/L3/" "$file_index" | awk -v FS="____" '{print $1}' | grep -E ".*\.gene\.quantification\.txt$|.*\.gene\.fpkm\.txt$|chla\.org_NBL\.HumanExon\.Level-3\.BER\..*_gene\..*\.txt$|.*\.expression\.txt$" | grep -iv "/archive" | awk '{sub(/^\.\//,""); printf("%s\n",$0)}' | sort -u)
 
     # For each file to download...
     for datafile in $datafiles; do
@@ -165,7 +173,7 @@ download_files() {
 }
 
 
-# Main function to call directly in order to extract the data into a CSV file
+# Main function to call directly in order to extract the datafiles into TSV files to be subsequently read into Pandas dataframes in Python
 extract_data() {
 
     # Sample call:
@@ -176,32 +184,112 @@ extract_data() {
     datadir=$2
     file_index=$3
 
+    # Create a directory to hold the TSV files
+    tsv_dir="${datadir}tsv_files/"
+    if [ ! -d "$tsv_dir" ]; then
+        mkdir "$tsv_dir"
+    else
+        echo "ERROR: TSV file directory '$tsv_dir' already exists"
+        exit 8
+    fi
+
+    # Set the JSON filenames
+    filedata_json="${datadir}filedata.json"
+    metadata_json="${datadir}metadata.json"
+
     # Append "tree" to the data directory
     datadir="${datadir}tree/"
 
     # Get the list of files that should have been downloaded using the full list of indexed files
-    datafiles=$(grep "/L3/" "$file_index" | awk -v FS="____" '{print $1}' | grep -E ".*\.gene\.quantification\.txt$|.*\.gene\.fpkm\.txt$|chla\.org_NBL\.HumanExon\.Level-3\.BER\..*_gene\..*\.txt$|.*\.expression\.txt$" | grep -iv "/archive" | awk '{sub(/^\.\//,""); printf("%s\n",$0)}' | sort -u)
+    datafiles=$(get_datafile_list "$file_index")
+    #datafiles=$(grep "/L3/" "$file_index" | awk -v FS="____" '{print $1}' | grep -E ".*\.gene\.quantification\.txt$|.*\.gene\.fpkm\.txt$|chla\.org_NBL\.HumanExon\.Level-3\.BER\..*_gene\..*\.txt$|.*\.expression\.txt$" | grep -iv "/archive" | awk '{sub(/^\.\//,""); printf("%s\n",$0)}' | sort -u)
+    ndatafiles=$(echo "$datafiles" | awk '{print NF}')
 
     # For each datafile...
+    idatafile=0
     for datafile in $datafiles; do
 
-        # Determine the local filename, the weblink where it's theoretically located, and the current placeholder file (commented out)
+        # Determine the local filename and the weblink where it's theoretically located
         filename="$datadir${datafile}"
         weblink="$base_url$datafile"
-        #ls "${filename}____"* # this will get the placeholder file
 
         # If the downloaded file doesn't exist, exit with an error; otherwise, extract its data
         if [ ! -f "$filename" ]; then
             echo "ERROR: Datafile '$filename' does not exist"
             exit 7
         else
-            # Data to add to metadata file: $base_url, $datadir, $file_index, $(pwd)
-            # Data to add to CSV file: $filename, $weblink
-            echo "$filename" "$weblink"
+
+            # Output the current file we're processing
+            echo "Processing $filename..."
+
+            # Define the name of the TSV file we're going to create
+            tsv_file="${tsv_dir}tsv_file_$(printf "%07i" $idatafile)"
+            
+
+
+            # For now, assuming a uniform type of file, process the file accordingly, saving the result in the current TSV file (next up: create such a block for each file format!!)
+            awk '{
+                if (NR==1)
+                    printf("%s\t%s\t%s\n", "gene-pretty", "gene-ugly", toupper($4))
+                else {
+                    split($1, arr, "|")
+                    printf("%s\t%s\t%s\n", toupper(arr[1]), toupper(arr[2]), $4)
+                }
+            }' "$filename" > "$tsv_file"
+
+
+
+            # Save the data corresponding to each file so we can later create a JSON file of all the file data
+            if [ "x$ndatafiles" != "x1" ]; then
+                if [ "x$idatafile" == "x0" ]; then
+                    filenames="['$filename'"
+                    weblinks="['$weblink'"
+                    idatafiles="[$idatafile"
+                    tsv_files="['$tsv_file'"
+                elif [ "x$idatafile" == "x$((ndatafiles-1))" ]; then
+                    filenames="$filenames, '$filename']"
+                    weblinks="$weblinks, '$weblink']"
+                    idatafiles="$idatafiles, $idatafile]"
+                    tsv_files="$tsv_files, '$tsv_file']"
+                else
+                    filenames="$filenames, '$filename'"
+                    weblinks="$weblinks, '$weblink'"
+                    idatafiles="$idatafiles, $idatafile"
+                    tsv_files="$tsv_files, '$tsv_file'"
+                fi
+            else
+                filenames="['$filename']"
+                weblinks="['$weblink']"
+                idatafiles="[$idatafile]"
+                tsv_files="['$tsv_file']"
+            fi
+
         fi
+
+        # Increate the datafile index
+        idatafile=$((idatafile+1))
+        
     done
 
+    # Save the file data to a JSON file
+    echo "
+    filedata = {
+        'filenames': $filenames,
+        'weblinks': $weblinks,
+        'idatafiles': $idatafiles,
+        'tsv_files': $tsv_files
+    }
+    " > "$filedata_json"
+
+    # Save the metadata to a JSON file
+    echo "
+    metadata = {
+        'base_url': '$base_url',
+        'datadir': '$datadir',
+        'file_index': '$file_index',
+        'working_dir': '$(pwd)',
+        'ndatafiles': $ndatafiles
+    }
+    " > "$metadata_json"
+
 }
-
-
-extract_data "https://target-data.nci.nih.gov/" "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
