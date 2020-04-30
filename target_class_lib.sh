@@ -293,3 +293,81 @@ extract_data() {
     " > "$metadata_json"
 
 }
+
+
+# Function used for just printing the downloaded files
+print_file_list() {
+
+    # Sample call:
+    #   print_file_list "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
+
+    # Parameters
+    datadir=$1
+    file_index=$2
+
+    # Append "tree" to the data directory
+    datadir="${datadir}tree/"
+
+    # Get the list of files that should have been downloaded using the full list of indexed files
+    datafiles=$(get_datafile_list "$file_index")
+
+    # For each datafile...
+    for datafile in $datafiles; do
+
+        # Determine the local filename
+        filename="$datadir${datafile}"
+
+        # If the downloaded file doesn't exist, exit with an error; otherwise, print the filename
+        if [ ! -f "$filename" ]; then
+            echo "ERROR: Datafile '$filename' does not exist"
+            exit 7
+        else
+
+            # Print the filename
+            echo "$filename"
+
+        fi
+
+    done
+
+}
+
+
+# Function used for printing the unique headers in the datafiles
+get_unique_headers() {
+
+    # Sample call:
+    #   get_unique_headers "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
+
+    # Parameters
+    datadir=$1
+    file_index=$2
+
+    # (1) Print the unique headers to file
+    for datafile in $(print_file_list "$datadir" "$file_index"); do
+        head -n 1 "$datafile"
+    done | sort -u > "$datadir/unique_headers.txt"
+
+    # (2) MANUALLY delete (all but one of) the ones whose headers include file-specific information, e.g., the patient ID, e.g., "probeset_id	TARGET-30-PAAPFA"
+    # Then change those headers to a general regexp, e.g., "probeset_id	TARGET-30-PAAPFA" --> "probeset_id	TARGET\-.+"
+
+}
+
+
+testing() {
+
+    # Sample call:
+    #   testing "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt" > all_headers.txt
+
+    # Parameters
+    datadir=$1
+    file_index=$2
+
+    for datafile in $(print_file_list "$datadir" "$file_index"); do
+        head -n 1 "$datafile"
+    done
+
+}
+
+
+testing "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt" > all_headers.txt
