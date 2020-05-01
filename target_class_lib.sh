@@ -1,13 +1,9 @@
 #!/bin/bash
 
-# Note documentation for this library is at https://collaborate.nci.nih.gov/x/kJHrDg
+#
+# See README.md (same directory) for instructions on using this library
+#
 
-# Run this script like, e.g.:
-#
-#   (source /data/BIDS-HPC/private/projects/dmi/checkout/target_class_lib.sh; get_file_placeholders "https://target-data.nci.nih.gov/" "Controlled/ Public/" "/data/BIDS-HPC/private/projects/dmi/data/" |& tee -a all_dirs.txt)
-#   (source /data/BIDS-HPC/private/projects/dmi/checkout/target_class_lib.sh; get_file_placeholders "https://target-data.nci.nih.gov/Public/RT/mRNA-seq/" "L3/ METADATA/" "/data/BIDS-HPC/private/projects/dmi/data/" |& tee -a all_dirs.txt)
-#   (source /data/BIDS-HPC/private/projects/dmi/checkout/target_class_lib.sh; download_files "https://target-data.nci.nih.gov/" "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt" |& tee -a downloads.txt)
-#
 
 # Main recursive function to process all the directories and files at the input URL; probably don't call this function directly
 crawl() {
@@ -169,6 +165,33 @@ download_files() {
 }
 
 
+# Function used for printing the unique headers in the datafiles; this determines the formats of the datafiles
+get_unique_headers() {
+
+    # Sample call:
+    #   get_unique_headers "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
+    #   THEN GO THROUGH PART (2) OF THIS FUNCTION!!
+
+    # Parameters
+    datadir=$1
+    file_index=$2
+
+    # (1) Print the unique headers to file
+    for datafile in $(get_datafile_list "$file_index"); do
+        filename="${datadir}tree/${datafile}"
+        head -n 1 "$filename"
+    done | sort -u > "$datadir/unique_headers.txt"
+
+    # (2) MANUALLY delete (all but one of) the ones whose headers include file-specific information, e.g., the patient ID, e.g., "probeset_id	TARGET-30-PAAPFA"
+    # Then change those headers to a general regexp, e.g., "probeset_id	TARGET-30-PAAPFA" --> "probeset_id	TARGET-.+"
+    # Finally, add a "^" to the beginning of each line in unique_headers.txt and add a "$" to the end of each line
+
+    # (3) Since from the ensure_format_consistency() function we know that format #4 is not consistent, duplicate this row.
+    # Then, since we know that defining the filename will make the formats unique, create another file called unique_basenames.txt with the same number of rows as unique_headers, and in the two rows corresponding to the non-distinguishing header formats, distinguish the filenames using regular expressions.
+
+}
+
+
 # Convert a Bash string to a Python list
 bash_str_to_python_list() {
     x=$1
@@ -202,14 +225,100 @@ determine_file_format() {
         header_list=$(bash_str_to_python_list "$header_ids")
         basename_list=$(bash_str_to_python_list "$basename_ids")
 
-        #echo "$filename $header_list $basename_list" >> bleh.txt
-
         # Return the intersection of these two lists, which should result in a single number (if the steps were appropriately followed in get_unique_headers())
-        #python -c "print(($header_list and $basename_list)[0])"
         python -c "print(list(set($header_list) & set($basename_list))[0])"
 
     fi
 
+}
+
+
+# Run this function to generate a master file format list
+get_format_mapping() {
+
+    # Sample call:
+    #   get_format_mapping "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
+
+    # Parameters
+    datadir=$1
+    file_index=$2
+
+    # Print a file containing the format number next to the filename
+    for datafile in $(get_datafile_list "$file_index"); do
+        filename="${datadir}tree/${datafile}"
+        format_num=$(determine_file_format "$filename" "$datadir/unique_headers.txt" "$datadir/unique_basenames.txt")
+        echo "$format_num" "$filename"
+    done > "$datadir/format_mapping.txt"
+
+}
+
+
+# Print out a report of features of the files for each unique file format
+ensure_format_consistency() {
+
+    # Sample call:
+    #   ensure_format_consistency "/data/BIDS-HPC/private/projects/dmi/data/" > uniformity_check.txt
+
+    # Note: From the results here we see that format #4 results in non-uniform formats, that's why we also had to implement splitting based on the basename (and potentially later, on the full filepath)
+
+    # Parameter
+    datadir=$1
+
+    # Variables
+    unique_headers="${datadir}unique_headers.txt"
+    mapping_file="${datadir}format_mapping.txt"
+
+    # Determine the number of unique file formats
+    nformats=$(wc -l "$unique_headers" | awk '{print $1}')
+
+    # For each unique file format...
+    nfiles_holder=""
+    for format_num in $(seq 1 "$nformats"); do
+
+        # Get the list of filenames of the current format, their corresponding basenames, and the number of files of this format
+        filenames=$(awk -v format_num="$format_num" '$1==format_num{print $2}' "$mapping_file")
+        basenames=$(echo "$filenames" | awk '{len=split($1,arr,"/"); print arr[len]}' | sort -u)
+        nfiles=$(echo "$basenames" | wc -l)
+        nfiles_holder="$nfiles_holder,$nfiles"
+ 
+        # Output the current file format being analyzed
+        echo -e "\n---- On format number $format_num ----\n"
+
+        # Output the sorted list of basenames in order to observe their patterns
+        echo -e "Basenames:\n"
+        echo -e "$basenames\n"
+
+        # Output the header line describing the current format
+        echo -e "Header line:\n"
+        awk -v format_num="$format_num" 'NR==format_num{print}' "$unique_headers"
+
+        # Output the first non-header line of each file of the current format (along with the filename in order to help narrow down differences)
+        echo -e "\nFirst non-header line of each file:\n"
+        for filename in $filenames; do
+            second_line=$(head -n 2 "$filename" | tail -n 1)
+            echo -e "$second_line\t$filename"
+        done
+
+        # Output the number of files of the current format
+        echo -e "\nNumber of files: $nfiles\n"
+
+        # Confirm a single number of unique fields in the datafiles of the current format
+        echo -e "Unique numbers of fields:\n"
+        for filename in $filenames; do
+            awk '{print NF}' "$filename" | sort -u
+        done | sort -u
+ 
+    done
+
+    # Output the number of files in each format and ensure their sum equals, currently, 2261
+    echo -e "\n\n-------------------"
+    echo -e "Overall quantities:\n"
+    python -c "
+nfiles_holder=[${nfiles_holder:1:${#nfiles_holder}}]
+print('Number of files in each format: {}'.format(nfiles_holder))
+print('Total number of files: {}'.format(sum(nfiles_holder)))
+    "
+    
 }
 
 
@@ -337,110 +446,3 @@ extract_data() {
     " > "$metadata_json"
 
 }
-
-
-# Function used for printing the unique headers in the datafiles; this determines the formats of the datafiles
-get_unique_headers() {
-
-    # Sample call:
-    #   get_unique_headers "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
-    #   THEN GO THROUGH PART (2) OF THIS FUNCTION!!
-
-    # Parameters
-    datadir=$1
-    file_index=$2
-
-    # (1) Print the unique headers to file
-    for datafile in $(get_datafile_list "$file_index"); do
-        filename="${datadir}tree/${datafile}"
-        head -n 1 "$filename"
-    done | sort -u > "$datadir/unique_headers.txt"
-
-    # (2) MANUALLY delete (all but one of) the ones whose headers include file-specific information, e.g., the patient ID, e.g., "probeset_id	TARGET-30-PAAPFA"
-    # Then change those headers to a general regexp, e.g., "probeset_id	TARGET-30-PAAPFA" --> "probeset_id	TARGET-.+"
-    # Finally, add a "^" to the beginning of each line in unique_headers.txt and add a "$" to the end of each line
-
-    # (3) Since from the ensure_format_consistency() function we know that format #4 is not consistent, duplicate this row
-    # Then, since we know that defining the filename will make the formats unique, create another file called unique_basenames.txt with the same number of rows as unique_headers, and in the two rows corresponding to the non-distinguishing header formats, distinguish the filenames using regular expressions
-
-}
-
-
-# Run this function to generate a master file format list
-get_format_mapping() {
-
-    # Sample call:
-    #   get_format_mapping "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
-
-    # Parameters
-    datadir=$1
-    file_index=$2
-
-    # Print a file containing the format number next to the filename
-    for datafile in $(get_datafile_list "$file_index"); do
-        filename="${datadir}tree/${datafile}"
-        format_num=$(determine_file_format "$filename" "$datadir/unique_headers.txt" "$datadir/unique_basenames.txt")
-        echo "$format_num" "$filename"
-    done > "$datadir/format_mapping.txt"
-
-}
-
-
-ensure_format_consistency() {
-
-    # Sample call:
-    #   ensure_format_consistency "/data/BIDS-HPC/private/projects/dmi/data/"
-
-    # Note: From the results here we see that format #4 results in non-uniform formats; now figuring out how to separate this out!
-
-    datadir=$1
-
-    unique_headers="${datadir}unique_headers.txt"
-    mapping_file="${datadir}format_mapping.txt"
-
-    nformats=$(wc -l "$unique_headers" | awk '{print $1}')
-
-    nfiles_holder=""
-    for format_num in $(seq 1 "$nformats"); do
-
-        filenames=$(awk -v format_num="$format_num" '$1==format_num{print $2}' "$mapping_file")
-        basenames=$(echo "$filenames" | awk '{len=split($1,arr,"/"); print arr[len]}' | sort -u)
-        nfiles=$(echo "$basenames" | wc -l)
-        nfiles_holder="$nfiles_holder,$nfiles"
- 
-        echo -e "\n---- On format number $format_num ----\n"
-
-        echo -e "Basenames:\n"
-        echo -e "$basenames\n"
-
-        echo -e "Header line:\n"
-        awk -v format_num="$format_num" 'NR==format_num{print}' "$unique_headers"
-
-        echo -e "\nFirst non-header line of each file:\n"
-        for filename in $filenames; do
-            second_line=$(head -n 2 "$filename" | tail -n 1)
-            echo -e "$second_line\t$filename"
-        done
-
-        echo -e "\nNumber of files: $nfiles\n"
-
-        echo -e "Unique numbers of fields:\n"
-        for filename in $filenames; do
-            awk '{print NF}' "$filename" | sort -u
-        done | sort -u
- 
-    done
-
-    echo -e "\n\n-------------------"
-    echo -e "Overall quantities:\n"
-
-    python -c "
-nfiles_holder=[${nfiles_holder:1:${#nfiles_holder}}]
-print('Number of files in each format: {}'.format(nfiles_holder))
-print('Total number of files: {}'.format(sum(nfiles_holder)))
-    "
-    
-}
-
-
-ensure_format_consistency "/data/BIDS-HPC/private/projects/dmi/data/"
