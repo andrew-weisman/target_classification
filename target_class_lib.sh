@@ -149,12 +149,8 @@ download_files() {
     # Append "tree" to the data directory
     datadir="${datadir}tree/"
 
-    # Get the list of files to download from the full list of indexed files
-    datafiles=$(get_datafile_list "$file_index")
-    #datafiles=$(grep "/L3/" "$file_index" | awk -v FS="____" '{print $1}' | grep -E ".*\.gene\.quantification\.txt$|.*\.gene\.fpkm\.txt$|chla\.org_NBL\.HumanExon\.Level-3\.BER\..*_gene\..*\.txt$|.*\.expression\.txt$" | grep -iv "/archive" | awk '{sub(/^\.\//,""); printf("%s\n",$0)}' | sort -u)
-
     # For each file to download...
-    for datafile in $datafiles; do
+    for datafile in $(get_datafile_list "$file_index"); do
 
         # Determine the local filename to download, the weblink where it's located, and the current placeholder file (commented out)
         filename="$datadir${datafile}"
@@ -169,6 +165,50 @@ download_files() {
             echo "WARNING: File '$filename' already exists; skipping download"
         fi
     done
+
+}
+
+
+# Convert a Bash string to a Python list
+bash_str_to_python_list() {
+    x=$1
+    echo "[$(echo $x | awk '{gsub(" ",","); print}')]" # purposefully not quoting $x here in case it contains newlines!
+}
+
+
+# Determine the file format number given a filename and the files containing the unique headers and unique basenames
+determine_file_format() {
+
+    # Parameters
+    filename=$1
+    unique_headers=$2
+    unique_basenames=$3
+
+    # Determine the 1 or more possible headers this file fits and store the possible number of headers
+    header_ids=$(awk -v header="$(head -n 1 "$filename")" 'header~$0{print NR}' "$unique_headers")
+    nheader_ids=$(echo "$header_ids" | wc -l)
+
+    # If the number of headers is 1 then we have determined the format so we can just return what we already know
+    if [ "$nheader_ids" -eq 1 ]; then
+        echo "$header_ids"
+
+    # Otherwise, we haven't fully narrowed down the format, so we need to use the filename (basename) as well
+    else
+
+        # Determine the 1 or more possible basenames this file fits
+        basename_ids=$(awk -v bn="$(basename "$filename")" 'bn~$0{print NR}' "$unique_basenames")
+
+        # Get the Python lists of the possible formats as determined by the headers and the basenames
+        header_list=$(bash_str_to_python_list "$header_ids")
+        basename_list=$(bash_str_to_python_list "$basename_ids")
+
+        #echo "$filename $header_list $basename_list" >> bleh.txt
+
+        # Return the intersection of these two lists, which should result in a single number (if the steps were appropriately followed in get_unique_headers())
+        #python -c "print(($header_list and $basename_list)[0])"
+        python -c "print(list(set($header_list) & set($basename_list))[0])"
+
+    fi
 
 }
 
@@ -202,7 +242,6 @@ extract_data() {
 
     # Get the list of files that should have been downloaded using the full list of indexed files
     datafiles=$(get_datafile_list "$file_index")
-    #datafiles=$(grep "/L3/" "$file_index" | awk -v FS="____" '{print $1}' | grep -E ".*\.gene\.quantification\.txt$|.*\.gene\.fpkm\.txt$|chla\.org_NBL\.HumanExon\.Level-3\.BER\..*_gene\..*\.txt$|.*\.expression\.txt$" | grep -iv "/archive" | awk '{sub(/^\.\//,""); printf("%s\n",$0)}' | sort -u)
     ndatafiles=$(echo "$datafiles" | awk '{print NF}')
 
     # For each datafile...
@@ -224,6 +263,11 @@ extract_data() {
 
             # Define the name of the TSV file we're going to create
             tsv_file="${tsv_dir}tsv_file_$(printf "%07i" $idatafile)"
+
+
+
+            #### Don't forget to save this to the JSON file as well!!!!
+            format_num=$(determine_file_format "$filename" "$datadir/unique_headers.txt" "$datadir/unique_basenames.txt")
             
 
 
@@ -295,79 +339,108 @@ extract_data() {
 }
 
 
-# Function used for just printing the downloaded files
-print_file_list() {
-
-    # Sample call:
-    #   print_file_list "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
-
-    # Parameters
-    datadir=$1
-    file_index=$2
-
-    # Append "tree" to the data directory
-    datadir="${datadir}tree/"
-
-    # Get the list of files that should have been downloaded using the full list of indexed files
-    datafiles=$(get_datafile_list "$file_index")
-
-    # For each datafile...
-    for datafile in $datafiles; do
-
-        # Determine the local filename
-        filename="$datadir${datafile}"
-
-        # If the downloaded file doesn't exist, exit with an error; otherwise, print the filename
-        if [ ! -f "$filename" ]; then
-            echo "ERROR: Datafile '$filename' does not exist"
-            exit 7
-        else
-
-            # Print the filename
-            echo "$filename"
-
-        fi
-
-    done
-
-}
-
-
-# Function used for printing the unique headers in the datafiles
+# Function used for printing the unique headers in the datafiles; this determines the formats of the datafiles
 get_unique_headers() {
 
     # Sample call:
     #   get_unique_headers "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
+    #   THEN GO THROUGH PART (2) OF THIS FUNCTION!!
 
     # Parameters
     datadir=$1
     file_index=$2
 
     # (1) Print the unique headers to file
-    for datafile in $(print_file_list "$datadir" "$file_index"); do
-        head -n 1 "$datafile"
+    for datafile in $(get_datafile_list "$file_index"); do
+        filename="${datadir}tree/${datafile}"
+        head -n 1 "$filename"
     done | sort -u > "$datadir/unique_headers.txt"
 
     # (2) MANUALLY delete (all but one of) the ones whose headers include file-specific information, e.g., the patient ID, e.g., "probeset_id	TARGET-30-PAAPFA"
-    # Then change those headers to a general regexp, e.g., "probeset_id	TARGET-30-PAAPFA" --> "probeset_id	TARGET\-.+"
+    # Then change those headers to a general regexp, e.g., "probeset_id	TARGET-30-PAAPFA" --> "probeset_id	TARGET-.+"
+    # Finally, add a "^" to the beginning of each line in unique_headers.txt and add a "$" to the end of each line
+
+    # (3) Since from the ensure_format_consistency() function we know that format #4 is not consistent, duplicate this row
+    # Then, since we know that defining the filename will make the formats unique, create another file called unique_basenames.txt with the same number of rows as unique_headers, and in the two rows corresponding to the non-distinguishing header formats, distinguish the filenames using regular expressions
 
 }
 
 
-testing() {
+# Run this function to generate a master file format list
+get_format_mapping() {
 
     # Sample call:
-    #   testing "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt" > all_headers.txt
+    #   get_format_mapping "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
 
     # Parameters
     datadir=$1
     file_index=$2
 
-    for datafile in $(print_file_list "$datadir" "$file_index"); do
-        head -n 1 "$datafile"
-    done
+    # Print a file containing the format number next to the filename
+    for datafile in $(get_datafile_list "$file_index"); do
+        filename="${datadir}tree/${datafile}"
+        format_num=$(determine_file_format "$filename" "$datadir/unique_headers.txt" "$datadir/unique_basenames.txt")
+        echo "$format_num" "$filename"
+    done > "$datadir/format_mapping.txt"
 
 }
 
 
-testing "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt" > all_headers.txt
+ensure_format_consistency() {
+
+    # Sample call:
+    #   ensure_format_consistency "/data/BIDS-HPC/private/projects/dmi/data/"
+
+    # Note: From the results here we see that format #4 results in non-uniform formats; now figuring out how to separate this out!
+
+    datadir=$1
+
+    unique_headers="${datadir}unique_headers.txt"
+    mapping_file="${datadir}format_mapping.txt"
+
+    nformats=$(wc -l "$unique_headers" | awk '{print $1}')
+
+    nfiles_holder=""
+    for format_num in $(seq 1 "$nformats"); do
+
+        filenames=$(awk -v format_num="$format_num" '$1==format_num{print $2}' "$mapping_file")
+        basenames=$(echo "$filenames" | awk '{len=split($1,arr,"/"); print arr[len]}' | sort -u)
+        nfiles=$(echo "$basenames" | wc -l)
+        nfiles_holder="$nfiles_holder,$nfiles"
+ 
+        echo -e "\n---- On format number $format_num ----\n"
+
+        echo -e "Basenames:\n"
+        echo -e "$basenames\n"
+
+        echo -e "Header line:\n"
+        awk -v format_num="$format_num" 'NR==format_num{print}' "$unique_headers"
+
+        echo -e "\nFirst non-header line of each file:\n"
+        for filename in $filenames; do
+            second_line=$(head -n 2 "$filename" | tail -n 1)
+            echo -e "$second_line\t$filename"
+        done
+
+        echo -e "\nNumber of files: $nfiles\n"
+
+        echo -e "Unique numbers of fields:\n"
+        for filename in $filenames; do
+            awk '{print NF}' "$filename" | sort -u
+        done | sort -u
+ 
+    done
+
+    echo -e "\n\n-------------------"
+    echo -e "Overall quantities:\n"
+
+    python -c "
+nfiles_holder=[${nfiles_holder:1:${#nfiles_holder}}]
+print('Number of files in each format: {}'.format(nfiles_holder))
+print('Total number of files: {}'.format(sum(nfiles_holder)))
+    "
+    
+}
+
+
+ensure_format_consistency "/data/BIDS-HPC/private/projects/dmi/data/"
