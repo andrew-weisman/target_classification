@@ -7,15 +7,22 @@
 
 ## Workflow summary
 
-On a Biowulf compute node (e.g., `sinteractive --mem=20g`), assign some variables:
+Clone and set up this repository (that which holds this README file) on Biowulf:
 
 ```bash
-project_dir="/data/BIDS-HPC/private/projects/dmi/"
+mkdir /data/BIDS-HPC/private/projects/dmi
+cd !!:1
+git clone git@github.com:andrew-weisman/target_classification.git checkout
+mkdir data # non-version-controlled files will be stored here
+```
+
+Get a compute node (e.g., `sinteractive --mem=20g`) and assign some variables:
+
+```bash
+project_dir="$(pwd)/"
 target_website="https://target-data.nci.nih.gov/"
 working_dir="/home/weismanal/notebook/2020-04-08/scraping_target_site/"
 ```
-
-Inside `$project_dir` there should be two main directories: (1) `checkout`, where version-controlled files are stored (i.e., this repository, including this README) and (2) `data`, where non-version-controlled files are stored.
 
 Load the Bash library:
 
