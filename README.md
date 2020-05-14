@@ -20,8 +20,8 @@ Get a compute node (e.g., `sinteractive --mem=20g`) and assign some variables:
 
 ```bash
 project_dir="$(pwd)/"
-target_website="https://target-data.nci.nih.gov/"
 working_dir="/home/weismanal/notebook/2020-04-08/scraping_target_site/"
+target_website="https://target-data.nci.nih.gov/"
 ```
 
 Load the Bash library:
