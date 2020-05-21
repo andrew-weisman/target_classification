@@ -3,6 +3,11 @@
 #
 # See README.md (same directory) for instructions on using this library
 #
+# Example of project_dir: /data/BIDS-HPC/private/projects/dmi/
+# Examples of working_dir:
+#                           /home/weismanal/notebook/2020-04-08/scraping_target_site/
+#                           /home/weismanal/notebook/2020-05-18/dmi/
+#
 
 
 # Main recursive function to process all the directories and files at the input URL; probably don't call this function directly
@@ -77,14 +82,20 @@ crawl() {
 get_file_placeholders() {
 
     # Sample calls:
-    #   get_file_placeholders "https://target-data.nci.nih.gov/" "Controlled/ Public/" "/data/BIDS-HPC/private/projects/dmi/data/"
-    #   get_file_placeholders "https://target-data.nci.nih.gov/Controlled/AML/mRNA-seq/L3/structural/" "BCCA/ NCI-Meerzaman/" "/data/BIDS-HPC/private/projects/dmi/data/"
-    #   get_file_placeholders "https://target-data.nci.nih.gov/Public/RT/mRNA-seq/" "L3/ METADATA/" "/data/BIDS-HPC/private/projects/dmi/data/"
+    #   get_file_placeholders "https://target-data.nci.nih.gov/" "Controlled/ Public/" "${project_dir}data/"
+    #   get_file_placeholders "https://target-data.nci.nih.gov/Controlled/AML/mRNA-seq/L3/structural/" "BCCA/ NCI-Meerzaman/" "${project_dir}data/"
+    #   get_file_placeholders "https://target-data.nci.nih.gov/Public/RT/mRNA-seq/" "L3/ METADATA/" "${project_dir}data/"
 
     # Parameters
     base_url=$1
     top_directories=$2
     datadir=$3
+
+    # Check for existence of all_files_in_tree.txt
+    if [ -f "${datadir}all_files_in_tree.txt" ]; then
+        echo "ERROR: File ${datadir}all_files_in_tree.txt already exists"
+        exit
+    fi
 
     # Constant
     working_dir=$(pwd)
@@ -112,14 +123,16 @@ get_file_placeholders() {
     # Create two other lists of the files/dirs in the tree we just created
     mv "$datadir/wget_err.txt" "$working_dir"
     tree > "$working_dir/all_files_and_dirs.txt"
-    find . -type f > "$working_dir/all_files_in_tree.txt"
+    #find . -type f > "$working_dir/all_files_in_tree.txt"
+    find . -type f > "${datadir}/../all_files_in_tree.txt"
 
     # Go back into the original working directory
     cd "$working_dir" || (echo "ERROR: Cannot cd into directory '$working_dir'"; exit 6)
 
     # Print out the likely next command we'd want to run
     echo "Likely next command to run:"
-    echo "  download_files \"$base_url\" \"$datadir\" \"$working_dir/all_files_in_tree.txt\""
+    #echo "  download_files \"$base_url\" \"$datadir\" \"$working_dir/all_files_in_tree.txt\""
+    echo "  download_files \"$base_url\" \"$datadir\" \"${datadir}/../all_files_in_tree.txt\""
 
 }
 
@@ -135,12 +148,14 @@ get_datafile_list() {
 download_files() {
 
     # Sample call:
-    #   download_files "https://target-data.nci.nih.gov/" "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
+    #   download_files "https://target-data.nci.nih.gov/" "${project_dir}data/"
 
     # Parameters
     base_url=$1
     datadir=$2
-    file_index=$3
+
+    # Constant
+    file_index="${datadir}all_files_in_tree.txt"
 
     # Append "tree" to the data directory
     datadir="${datadir}tree/"
@@ -169,12 +184,14 @@ download_files() {
 get_unique_headers() {
 
     # Sample call:
-    #   get_unique_headers "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
+    #   get_unique_headers "${project_dir}data/"
     #   THEN GO THROUGH PART (2) OF THIS FUNCTION!!
 
     # Parameters
     datadir=$1
-    file_index=$2
+
+    # Constant
+    file_index="${datadir}all_files_in_tree.txt"
 
     # (1) Print the unique headers to file
     for datafile in $(get_datafile_list "$file_index"); do
@@ -237,11 +254,13 @@ determine_file_format() {
 get_format_mapping() {
 
     # Sample call:
-    #   get_format_mapping "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
+    #   get_format_mapping "${project_dir}data/"
 
     # Parameters
     datadir=$1
-    file_index=$2
+
+    # Constant
+    file_index="${datadir}all_files_in_tree.txt"
 
     # Print a file containing the format number next to the filename
     for datafile in $(get_datafile_list "$file_index"); do
@@ -257,12 +276,18 @@ get_format_mapping() {
 ensure_format_consistency() {
 
     # Sample call:
-    #   ensure_format_consistency "/data/BIDS-HPC/private/projects/dmi/data/" > uniformity_check.txt
+    #   ensure_format_consistency "${project_dir}data/"
 
     # Note: From the results here we see that format #4 results in non-uniform formats, that's why we also had to implement splitting based on the basename (and potentially later, on the full filepath)
 
     # Parameter
     datadir=$1
+
+    # Check for existence of uniformity_check.txt
+    if [ -f "${datadir}uniformity_check.txt" ]; then
+        echo "ERROR: File ${datadir}uniformity_check.txt already exists"
+        exit
+    fi
 
     # Variables
     unique_headers="${datadir}unique_headers.txt"
@@ -273,51 +298,53 @@ ensure_format_consistency() {
 
     # For each unique file format...
     nfiles_holder=""
-    for format_num in $(seq 1 "$nformats"); do
+    {
+        for format_num in $(seq 1 "$nformats"); do
 
-        # Get the list of filenames of the current format, their corresponding basenames, and the number of files of this format
-        filenames=$(awk -v format_num="$format_num" '$1==format_num{print $2}' "$mapping_file")
-        basenames=$(echo "$filenames" | awk '{len=split($1,arr,"/"); print arr[len]}' | sort -u)
-        nfiles=$(echo "$basenames" | wc -l)
-        nfiles_holder="$nfiles_holder,$nfiles"
- 
-        # Output the current file format being analyzed
-        echo -e "\n---- On format number $format_num ----\n"
+            # Get the list of filenames of the current format, their corresponding basenames, and the number of files of this format
+            filenames=$(awk -v format_num="$format_num" '$1==format_num{print $2}' "$mapping_file")
+            basenames=$(echo "$filenames" | awk '{len=split($1,arr,"/"); print arr[len]}' | sort -u)
+            nfiles=$(echo "$basenames" | wc -l)
+            nfiles_holder="$nfiles_holder,$nfiles"
+    
+            # Output the current file format being analyzed
+            echo -e "\n---- On format number $format_num ----\n"
 
-        # Output the sorted list of basenames in order to observe their patterns
-        echo -e "Basenames:\n"
-        echo -e "$basenames\n"
+            # Output the sorted list of basenames in order to observe their patterns
+            echo -e "Basenames:\n"
+            echo -e "$basenames\n"
 
-        # Output the header line describing the current format
-        echo -e "Header line:\n"
-        awk -v format_num="$format_num" 'NR==format_num{print}' "$unique_headers"
+            # Output the header line describing the current format
+            echo -e "Header line:\n"
+            awk -v format_num="$format_num" 'NR==format_num{print}' "$unique_headers"
 
-        # Output the first non-header line of each file of the current format (along with the filename in order to help narrow down differences)
-        echo -e "\nFirst non-header line of each file:\n"
-        for filename in $filenames; do
-            second_line=$(head -n 2 "$filename" | tail -n 1)
-            echo -e "$second_line\t$filename"
+            # Output the first non-header line of each file of the current format (along with the filename in order to help narrow down differences)
+            echo -e "\nFirst non-header line of each file:\n"
+            for filename in $filenames; do
+                second_line=$(head -n 2 "$filename" | tail -n 1)
+                echo -e "$second_line\t$filename"
+            done
+
+            # Output the number of files of the current format
+            echo -e "\nNumber of files: $nfiles\n"
+
+            # Confirm a single number of unique fields in the datafiles of the current format
+            echo -e "Unique numbers of fields:\n"
+            for filename in $filenames; do
+                awk '{print NF}' "$filename" | sort -u
+            done | sort -u
+    
         done
 
-        # Output the number of files of the current format
-        echo -e "\nNumber of files: $nfiles\n"
-
-        # Confirm a single number of unique fields in the datafiles of the current format
-        echo -e "Unique numbers of fields:\n"
-        for filename in $filenames; do
-            awk '{print NF}' "$filename" | sort -u
-        done | sort -u
- 
-    done
-
-    # Output the number of files in each format and ensure their sum equals, currently, 2261
-    echo -e "\n\n-------------------"
-    echo -e "Overall quantities:\n"
-    python -c "
+        # Output the number of files in each format and ensure their sum equals, currently, 2261
+        echo -e "\n\n-------------------"
+        echo -e "Overall quantities:\n"
+        python -c "
 nfiles_holder=[${nfiles_holder:1:${#nfiles_holder}}]
 print('Number of files in each format: {}'.format(nfiles_holder))
 print('Total number of files: {}'.format(sum(nfiles_holder)))
     "
+    } > "${datadir}uniformity_check.txt"
     
 }
 
@@ -326,12 +353,14 @@ print('Total number of files: {}'.format(sum(nfiles_holder)))
 extract_data() {
 
     # Sample call:
-    #   extract_data "https://target-data.nci.nih.gov/" "/data/BIDS-HPC/private/projects/dmi/data/" "/home/weismanal/notebook/2020-04-08/scraping_target_site/all_files_in_tree.txt"
+    #   extract_data "https://target-data.nci.nih.gov/" "${project_dir}data/"
 
     # Parameters
     base_url=$1
     datadir=$2
-    file_index=$3
+
+    # Constant
+    file_index="${datadir}all_files_in_tree.txt"
 
     # Create a directory to hold the TSV files
     tsv_dir="${datadir}tsv_files/"
@@ -383,7 +412,7 @@ extract_data() {
             # For now, assuming a uniform type of file, process the file accordingly, saving the result in the current TSV file (next up: create such a block for each file format!!)
             awk '{
                 if (NR==1)
-                    printf("%s\t%s\t%s\n", "gene-pretty", "gene-ugly", toupper($4))
+                    printf("%s\t%s\t%s\n", "gene-symbol", "gene-id", toupper($4))
                 else {
                     split($1, arr, "|")
                     printf("%s\t%s\t%s\n", toupper(arr[1]), toupper(arr[2]), $4)
@@ -446,3 +475,248 @@ extract_data() {
     " > "$metadata_json"
 
 }
+
+
+# Extract the "best" gene name from a line in a file of each type
+get_best_gene_name_from_file() {
+    format_num=$1
+    filename=$2
+    case "$format_num" in
+        1)
+            awk -v format_num="$format_num" -v filename="$filename" '{
+                if (NR!=1) {
+                    printf("%s\t%s\t%s\n", toupper($1), format_num, filename)
+                }
+            }' "$filename"
+            ;;
+        2)
+            awk -v format_num="$format_num" -v filename="$filename" '{
+                if (NR!=1) {
+                    printf("%s\t%s\t%s\n", toupper($1), format_num, filename)
+                }
+            }' "$filename"
+            ;;
+        3)
+            awk -v format_num="$format_num" -v filename="$filename" '{
+                if (NR!=1) {
+                    printf("%s\t%s\t%s\n", toupper($1), format_num, filename)
+                }
+            }' "$filename"
+            ;;
+        4)
+            awk -v format_num="$format_num" -v filename="$filename" '{
+                if (NR!=1) {
+                    split($1, arr, "|")
+                    printf("%s\t%s\t%s\n", toupper(arr[2]), format_num, filename)
+                }
+            }' "$filename"
+            ;;
+        5)
+            awk -v format_num="$format_num" -v filename="$filename" '{
+                if (NR!=1) {
+                    printf("%s\t%s\t%s\n", toupper($1), format_num, filename)
+                }
+            }' "$filename"
+            ;;
+        6)
+            awk -v format_num="$format_num" -v filename="$filename" '{
+                if (NR!=1) {
+                    split($1, arr, ".")
+                    printf("%s\t%s\t%s\n", toupper(arr[1]), format_num, filename)
+                }
+            }' "$filename"
+            ;;
+        7)
+            awk -v format_num="$format_num" -v filename="$filename" '{
+                if (NR!=1) {
+                    printf("%s\t%s\t%s\n", toupper($1), format_num, filename)
+                }
+            }' "$filename"
+            ;;
+        8)
+            awk -v format_num="$format_num" -v filename="$filename" '{
+                if (NR!=1) {
+                    printf("%s\t%s\t%s\n", toupper($1), format_num, filename)
+                }
+            }' "$filename"
+            ;;
+        *)
+            echo "ERROR: Unknown format number ($format_num)"
+            exit
+            ;;
+    esac
+}
+
+
+# Create a file called all_best_gene_names.txt in the data directory that writes out the "best" gene name in each line of each datafile
+get_best_gene_names_from_all_files() {
+
+    # Sample call:
+    #   get_best_gene_names_from_all_files "${project_dir}data/"
+
+    # Parameters
+    datadir=$1
+
+    # Ensure we're not overwriting an existing file
+    if [ -f "${datadir}all_best_gene_names.txt" ]; then
+        echo "ERROR: File ${datadir}all_best_gene_names.txt already exists"
+        exit
+    fi
+
+    # Constant
+    file_index="${datadir}all_files_in_tree.txt"
+
+    # Get the list of files that should have been downloaded using the full list of indexed files
+    datafiles=$(get_datafile_list "$file_index")
+
+    # For each datafile...
+    {
+        for datafile in $datafiles; do
+
+            # Determine the local filename
+            filename="${datadir}tree/${datafile}"
+
+            # If the downloaded file doesn't exist, exit with an error; otherwise, extract its data
+            if [ ! -f "$filename" ]; then
+                echo "ERROR: Datafile '$filename' does not exist"
+                exit 7
+            else
+
+                # Get the format number for the current file
+                format_num=$(determine_file_format "$filename" "$datadir/unique_headers.txt" "$datadir/unique_basenames.txt")
+                
+                # Get the best gene name from the current file
+                get_best_gene_name_from_file "$format_num" "$filename"
+
+            fi
+
+        done
+    } > "${datadir}all_best_gene_names.txt"
+
+}
+
+
+# Create a file containing three columns for each unique best gene name in the entire dataset: (1) the number of matches of symbols from the lookup table, (2) the number of matches of the IDs from the lookup table, (3) the unique best gene name itself
+show_whether_genes_are_known() {
+    # Sample call:
+    #   show_whether_genes_are_known "${project_dir}data/" "$working_dir"
+
+    # Parameters
+    datadir=$1
+    working_dir=$2
+
+    # Ensure we're not overwriting an already created output file
+    if [ -f "${datadir}whether_genes_are_known.txt" ]; then
+        echo "ERROR: Output file ${datadir}whether_genes_are_known.txt already exists"
+        exit
+    fi
+
+    # Temporary files to go in the working directory
+    tmp_symbol_file="${working_dir}tmp_symbol_results.txt"
+    tmp_id_file="${working_dir}tmp_id_results.txt"
+
+    # For every unique best gene name in the entire dataset...
+    {
+        while read -r name; do
+
+            # Export any matches in the symbols file
+            grep "$name" "${datadir}lookup_symbol_uppercase.txt" > "$tmp_symbol_file"
+
+            # Export any matches in the IDs file
+            grep "$name" "${datadir}lookup_id_uppercase.txt" > "$tmp_id_file"
+
+            # Output the number of matches in each file type, as well as the best gene name itself
+            echo -e "$(wc -l "$tmp_symbol_file" | awk '{print $1}')\t$(wc -l "$tmp_id_file" | awk '{print $1}')\t$name"
+
+        done < "${datadir}unique_best_gene_names_uppercase.txt"
+    } > "${datadir}whether_genes_are_known.txt"
+}
+
+
+# For each of the four types of gene names identified in show_whether_genes_are_known() above (i.e., how they do in the HGNC lookup table), do as best as possible using the HGNC lookup table to get the Ensembl IDs, creating a full-size lookup table with blank third columns if really no Ensembl ID is currently known
+create_partial_global_lookup_table() {
+    # Sample call:;
+    #   create_partial_global_lookup_table "${project_dir}data/"
+
+    # Parameter
+    datadir=$1
+
+    # Don't overwrite an already existing output file
+    if [ -f "${datadir}partial_global_lookup_table.txt" ]; then
+        echo "ERROR: Output file ${datadir}partial_global_lookup_table.txt already exists"
+        exit
+    fi
+
+    {
+
+        # Output the trivial lookup for these two sets, whose gene names are already the Ensembl IDs
+        awk '($1==0 && $2==1){split($3,arr,"|"); printf("lookup:\t%s\t%s\n", arr[2], arr[2])}' "${datadir}whether_genes_are_known.txt" # these are gene names that match to a single Ensembl ID, so we know the Ensembl ID for them (N=37822)
+        awk '($1==0 && $2==2){split($3,arr,"|"); printf("lookup:\t%s\t%s\n", arr[2], arr[2])}' "${datadir}whether_genes_are_known.txt" # these are gene names that match to 2 Ensembl IDs, but they are the same Ensembl ID obviously, so we know the Ensembl ID; there is no ambiguity for us (though there is for the HGNC database) (N=3)
+
+        # For every gene name that matches to a single symbol, see if an Ensembl ID exists in the HGNC lookup table and print out the lookup; otherwise make a note that no Ensembl ID exists
+        while read -r name; do
+            tail -n +2 "${datadir}gene_lookup_table.txt" | awk -v name="$name" '
+            BEGIN { count = 0 }
+            {
+                upper_2 = toupper($2)
+                if (upper_2==name && $3!="") {
+                    count++
+                    #printf("MATCH FOUND (%i):\t%s\t%s\n", count, toupper($3), upper_2)
+                    printf("lookup:\t%s\t%s\n", name, toupper($3))
+                }
+            }
+            END {
+                if (count==0) printf("unmatched:\t%s\n", name)
+            }
+            '
+        done < <(awk '($1==1 && $2==0){split($3,arr,"|"); print arr[2]}' "${datadir}whether_genes_are_known.txt") # these are gene names that match to a single HGNC symbol (N=27624)
+
+        # Output every gene name in this set as unmatched since it wasn't found at all in the HGNC lookup table, unless it's an Ensembl ID (remember the HGNC lookup table doesn't include all Ensembl IDs)
+        awk '($1==0 && $2==0){
+            split($3,arr,"|")
+            name = arr[2]
+            if (name ~ /^ENSG[0-9]{11}$/)
+                printf("lookup:\t%s\t%s\n", name, name)
+            else
+                printf("unmatched:\t%s\n", name)
+        }' "${datadir}whether_genes_are_known.txt" # these are gene names that don't match anything in the lookup table (N=63161)
+
+    } > "${datadir}partial_global_lookup_table.txt"
+}
+
+
+# lookup() {
+#     name=$1
+#     base_url="https://rest.ensembl.org/"
+#     endpoint_lookup_symbol="lookup/symbol/homo_sapiens/"
+#     endpoint_lookup_id="lookup/id/"
+#     endpoint_xrefs_symbol="xrefs/symbol/homo_sapiens/"
+#     endpoint_xrefs_id="xrefs/id/"
+#     endpoint_xrefs_name="xrefs/name/homo_sapiens/"
+#     endpoint_archive_id="archive/id/"
+#     curl "${base_url}${endpoint_lookup_symbol}${name}" -H 'Content-type:application/json' -H 'Accept:application/json'
+#     #curl "${base_url}${endpoint_lookup_id}${name}" -H 'Content-type:application/json' -H 'Accept:application/json'
+#     #curl "${base_url}${endpoint_xrefs_symbol}${name}" -H 'Content-type:application/json' -H 'Accept:application/json' # this is the good one, but no POST!
+#     #curl "${base_url}${endpoint_xrefs_id}${name}" -H 'Content-type:application/json' -H 'Accept:application/json'
+#     #curl "${base_url}${endpoint_xrefs_name}${name}" -H 'Content-type:application/json' -H 'Accept:application/json'
+#     #curl "${base_url}${endpoint_archive_id}${name}" -H 'Content-type:application/json' -H 'Accept:application/json'
+# }
+
+
+# testing() {
+#     names_in="ENSG00000259762 ENSG00000259937 NAMPTL MINOS1P3 MINOS1P4 AC000029.1 AC007253.1 A3GALT2P A1BG"
+#     names_out="ENSG00000259765 ENSG00000259936 NAG18 MINOS1P1 AC000032.2 AC000003.1 AC007251.2"
+
+#     for name in $names_in; do
+#         echo -e "\n$name"
+#         lookup "$name"
+#         echo ""
+#     done
+# }
+
+
+# base_url="https://rest.ensembl.org/"
+# endpoint_lookup_symbol="lookup/symbol/homo_sapiens/"
+# endpoint_xrefs_symbol="xrefs/symbol/homo_sapiens/"
+# #curl "${base_url}${endpoint_lookup_symbol}" -H 'Content-type:application/json' -H 'Accept:application/json' -X POST -d '{ "symbols" : ["ENSG00000259762", "ENSG00000259937", "NAMPTL", "MINOS1P3", "MINOS1P4", "AC000029.1", "AC007253.1", "A3GALT2P", "A1BG"] }'
+# curl "${base_url}${endpoint_xrefs_symbol}" -H 'Content-type:application/json' -H 'Accept:application/json' -X POST -d '{ "symbols" : ["ENSG00000259762", "ENSG00000259937", "NAMPTL", "MINOS1P3", "MINOS1P4", "AC000029.1", "AC007253.1", "A3GALT2P", "A1BG"] }'
