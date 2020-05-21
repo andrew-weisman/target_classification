@@ -190,6 +190,12 @@ get_unique_headers() {
     # Parameters
     datadir=$1
 
+    # Ensure we're not overwriting the output file
+    if [ -f "$datadir/unique_headers.txt" ]; then
+        echo "ERROR: File $datadir/unique_headers.txt already exists"
+        exit
+    fi
+
     # Constant
     file_index="${datadir}all_files_in_tree.txt"
 
@@ -199,7 +205,7 @@ get_unique_headers() {
         head -n 1 "$filename"
     done | sort -u > "$datadir/unique_headers.txt"
 
-    # (2) MANUALLY delete (all but one of) the ones whose headers include file-specific information, e.g., the patient ID, e.g., "probeset_id	TARGET-30-PAAPFA"
+    # (2) MANUALLY delete (all but one of) the ones whose headers (in unique_headers.txt) include file-specific information, e.g., the patient ID, e.g., "probeset_id	TARGET-30-PAAPFA"
     # Then change those headers to a general regexp, e.g., "probeset_id	TARGET-30-PAAPFA" --> "probeset_id	TARGET-.+"
     # Finally, add a "^" to the beginning of each line in unique_headers.txt and add a "$" to the end of each line
 
@@ -258,6 +264,12 @@ get_format_mapping() {
 
     # Parameters
     datadir=$1
+
+    # Ensure we don't overwrite the output file
+    if [ -f "$datadir/format_mapping.txt" ]; then
+        echo "ERROR: File $datadir/format_mapping.txt already exists"
+        exit
+    fi
 
     # Constant
     file_index="${datadir}all_files_in_tree.txt"
@@ -594,6 +606,9 @@ get_best_gene_names_from_all_files() {
     } > "${datadir}all_best_gene_names.txt"
 
 }
+
+
+
 
 
 # Create a file containing three columns for each unique best gene name in the entire dataset: (1) the number of matches of symbols from the lookup table, (2) the number of matches of the IDs from the lookup table, (3) the unique best gene name itself
