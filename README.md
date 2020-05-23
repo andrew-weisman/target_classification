@@ -86,7 +86,7 @@ awk '{print $1}' "${project_dir}data/all_best_gene_names.txt" | sort -u | awk '{
 Split this file into Ensembl IDs and other gene names:
 
 ```bash
-grep -E "^ENSG[0-9]{11}$" "${project_dir}data/unique_best_gene_names_uppercase.txt" > "${project_dir}data/unique_ensemble_ids.txt" # 73,615 of these
+grep -E "^ENSG[0-9]{11}$" "${project_dir}data/unique_best_gene_names_uppercase.txt" > "${project_dir}data/unique_ensembl_ids.txt" # 73,615 of these
 grep -E -v "^ENSG[0-9]{11}$" "${project_dir}data/unique_best_gene_names_uppercase.txt" > "${project_dir}data/unique_other_names.txt" # 54,995 of these
 ```
 
