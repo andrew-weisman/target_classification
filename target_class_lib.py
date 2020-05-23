@@ -213,8 +213,9 @@ def get_initial_lookup_lists(project_dir):
     return(symbol_lookup_list, id_lookup_list)
 
 
-# Go through the missing lookups in the symbols lookup list and try to determine them using the xref endpoint of the Ensembl REST API
-def get_missing_lookups(project_dir, symbol_lookup_list, max_num_names=-1):
+# Go through the names in the inputted list of names and try to determine their Ensembl IDs using the xref endpoint of the Ensembl REST API
+# This function just saves the results in a pickle file if it doesn't already exist
+def get_missing_lookups(pickle_dir, pickle_file, to_xref_single_list, max_num_names=-1):
 
     # Import relevant modules
     import os, sys
@@ -224,7 +225,9 @@ def get_missing_lookups(project_dir, symbol_lookup_list, max_num_names=-1):
     import time_cell_interaction_lib as tci # we need this to get the pickle functions
 
     # If the file containing the missing lookup list does not already exist...
-    if not os.path.exists(os.path.join(project_dir,'data','missing_lookup_list.pkl')):
+    if not os.path.exists(os.path.join(pickle_dir, pickle_file)):
+
+        print('Calculating and creating file {}'.format(pickle_file))
 
         # Initialize some overall variables
         missing_lookup_list = []
@@ -233,14 +236,13 @@ def get_missing_lookups(project_dir, symbol_lookup_list, max_num_names=-1):
 
         # For each name in the symbol lookup list...
         imissing = 0
-        for item in symbol_lookup_list:
+        for name in to_xref_single_list:
 
-            # If the name is missing an Ensembl ID, try to find it using xref 
-            if item[1] is None:
-                imissing = imissing + 1
-                missing_lookup_list, _, iiter, missing_nidentified = run_and_process_query('xref', [item[0]], missing_lookup_list, iiter, missing_nidentified)
+            # Try to find the Ensembl ID of the current name using xref 
+            imissing = imissing + 1
+            missing_lookup_list, _, iiter, missing_nidentified = run_and_process_query('xref', [name], missing_lookup_list, iiter, missing_nidentified)
             
-            # If we've tried a certain number of items in symbol_lookup_list, stop
+            # If we've tried a certain number of names in to_xref_single_list, stop
             if imissing == max_num_names:
                 break
 
@@ -249,10 +251,45 @@ def get_missing_lookups(project_dir, symbol_lookup_list, max_num_names=-1):
             print('ERROR: Inconsistent number of Nones in the lookup list')
             exit
         else:
-            tci.make_pickle(missing_lookup_list, os.path.join(project_dir,'data'), 'missing_lookup_list.pkl')
+            tci.make_pickle(missing_lookup_list, pickle_dir, pickle_file)
 
-    # Otherwise, read it in
     else:
-        missing_lookup_list = tci.load_pickle(os.path.join(project_dir,'data'), 'missing_lookup_list.pkl')
+        print('Skipping file {} as it already exists'.format(pickle_file))
 
-    return(missing_lookup_list)
+    return()
+
+
+# Yield successive n-sized chunks from l
+# Taken from https://www.geeksforgeeks.org/break-list-chunks-size-n-python
+def divide_chunks(l, n): 
+    # looping till length l 
+    for i in range(0, len(l), n):  
+        yield l[i:i + n] 
+
+
+# Go through symbol_lookup_list, split into chunks all the names that don't have Ensembl IDs, and try to determine them if the pickle file corresponding to each chunk doesn't yet exist
+def save_missing_lookups_in_chunks(symbol_lookup_list, project_dir, chunk_size=1000):
+
+    # Import relevant module
+    import os
+
+    # Get the names in the symbol lookup list that do not have Ensembl IDs
+    to_xref = []
+    for item in symbol_lookup_list:
+        if item[1] is None:
+            to_xref.append(item[0])
+
+    # Split this list of names to try xref-ing into chunks of a certain size
+    to_xref_lists = list(divide_chunks(to_xref, chunk_size))
+
+    # Set the directory to save the missing lists in and create it if it doesn't already exist
+    pickle_dir = os.path.join(project_dir,'data','missing_lookup_lists')
+    if not os.path.exists(pickle_dir):
+        os.mkdir(pickle_dir)
+
+    # For each sub-list in to_xref, if the corresponding pickle file doesn't already exist, go through the names and try to determine their Ensembl IDs using the xref endpoint of the Ensembl REST API, and save the pickle file
+    for ilist, to_xref_single_list in enumerate(to_xref_lists):
+        pickle_file = 'missing_lookup_list_{:03d}.pkl'.format(ilist)
+        get_missing_lookups(pickle_dir, pickle_file, to_xref_single_list, max_num_names=-1)
+
+    return()
