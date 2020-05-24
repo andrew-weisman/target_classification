@@ -49,6 +49,7 @@ def ensembl_name_request(endpoint, names_list, wait_time=1):
     server = "https://rest.ensembl.org"
 
     # Set four settings depending on the endpoint
+    skip_query = False
     if endpoint == 'symbol':
         max_list_len = 1000 # maximum POST size
         ext = "/lookup/symbol/homo_sapiens"
@@ -60,6 +61,13 @@ def ensembl_name_request(endpoint, names_list, wait_time=1):
         headers = { "Content-Type" : "application/json", "Accept" : "application/json"}
         data = str({'ids': names_list}).replace('\'','"')
     elif endpoint == 'xref':
+
+        # Unfortunately, there can be slashes in synonyms (e.g., OK/SW-cl.4, see http://useast.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000181588;r=19:1554669-1568058), but this endpoint (and only this endpoint) will die if there is a slash. Thus, this code dies when searching for the two genes 'OK/SW-CL.36' and 'OK/SW-CL.58'. Thus, we have to skip these. However, they can be identified by placing them in the HTTP URL using the g option, e.g., http://useast.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=OK/SW-cl.4. Thus, we should just make a note of the presence of genes with slashes in them and say to manually identify them using this method, manually. Note upon doing this for those two genes, they are not in Ensembl!
+
+        if names_list[0].find('/') != -1:
+            print('WARNING: Gene name {} has a "/" in it and is being skipped because otherwise this endpoint ({}) dies. This gene must be queried manually, e.g., using the HTTP method (see the comment in the ensemble_name_request() function in target_class_lib.py). For the time being we\'re recording this gene as having no Ensembl ID.'.format(names_list[0], endpoint))
+            skip_query = True
+
         max_list_len = 1
         #ext = "/xrefs/symbol/homo_sapiens/BRCA2?"
         ext = "/xrefs/symbol/homo_sapiens/" + names_list[0]
@@ -71,19 +79,26 @@ def ensembl_name_request(endpoint, names_list, wait_time=1):
         print('ERROR: Names list is too long ({}) for the {} endpoint (max length is {})'.format(len(names_list), endpoint, max_list_len))
         exit
 
-    # Query the REST server
-    if data is not None:
-        r = requests.post(server+ext, headers=headers, data=data)
+    # If we DO want to perform the REST query
+    if not skip_query:
+
+        # Query the REST server
+        if data is not None:
+            r = requests.post(server+ext, headers=headers, data=data)
+        else:
+            r = requests.get(server+ext, headers=headers)
+        
+        # Ensure everything is okay
+        if not r.ok:
+            r.raise_for_status()
+            sys.exit()
+        
+        # Return the result
+        return(r.json())
+
+    # If we DON'T want to perform the REST query, return an empty list
     else:
-        r = requests.get(server+ext, headers=headers)
-    
-    # Ensure everything is okay
-    if not r.ok:
-        r.raise_for_status()
-        sys.exit()
-    
-    # Return the result
-    return(r.json())
+        return([])
 
 
 # Run and process the query, adding any found name-ID pairs to the main lookup list (or otherwise, add None)
