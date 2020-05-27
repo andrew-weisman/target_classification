@@ -388,3 +388,78 @@ def get_hgnc_lookup_table(project_dir):
 
     # Return the two table stacked into one
     return(pd.concat([df2,df]))
+
+
+# Test that string index and column values are all uppercase
+def test_caps_equality(df):
+    for icol, series in enumerate([df.index.to_series()] + [df.iloc[:,icol] for icol in range(df.shape[1])]):
+        series2 = series[series.notnull()]
+        series3 = series2.apply(lambda x: x.upper())
+        print('Uppercase equality of column {}: {}'.format(icol, (series2==series3).sum(axis=0)==len(series2)))
+
+
+# Incorporate some additional synonyms into the data lookup table using the HGNC database
+def incorporate_hgnc_lookups(data_lookup, hgnc_lookup):
+
+    # Get the names in the data lookup table that don't have Ensembl IDs
+    set1 = set(data_lookup.index[data_lookup['id'].isnull()]) # the question is which of these are in HGNC lookup
+
+    # Get all names in the HGNC lookup table
+    set2 = set(hgnc_lookup.index)
+
+    # Determine which of the former are in the latter
+    intersection = set1 & set2
+
+    print('There are {} names in the data lookup table lacking Ensembl IDs that DO have Ensembl IDs in the HGNC lookup table'.format(len(intersection)))
+    print('However, not all of the corresponding Ensembl IDs in the HGNC lookup table are necessarily in the Ensembl database; that\'s what we\'re about to find out')
+    print(intersection)
+
+    # For each of the names just identified...
+    pairs_to_test = []
+    for name in intersection:
+
+        # If the name isn't in Ensembl format (which we would have already identified), save the name-ID pair from the HGNC lookup table
+        if name != hgnc_lookup.loc[name,'id']:
+            pairs_to_test.append([hgnc_lookup.loc[name,'id'], name])
+
+    # Save just the Ensembl IDs from the HGNC lookup table to look up in the Ensembl database
+    id_list2 = [x[0] for x in pairs_to_test]
+
+    # Look up in the Ensembl database using the REST API these Ensembl IDs to see if they're present in the current version of the database
+    iiter = 0
+    lookup_list = []
+    nidentified = 0
+    lookup_list, _, _, nidentified = run_and_process_query('id', id_list2, lookup_list, iiter, nidentified) # returned 11 as expected
+
+    # Save the results as a dictionary
+    tested_dict = dict(pairs_to_test)
+
+    # If actual lookups exist, create the list of lookups to add to the data lookup table as a list
+    lookups_to_add = []
+    for item in lookup_list:
+        if item[1] is not None:
+            lookups_to_add.append([tested_dict[item[1]], item[1]])
+
+    # Separate the list into the HGNC symbols and their corresponding Ensembl IDs
+    symbols = [x[0] for x in lookups_to_add] # these don't show up in Ensembl
+    ids = [x[1] for x in lookups_to_add] # these do
+
+    # Print these entries in the data lookup table before adding them to the lookup table
+    print(data_lookup.loc[symbols,'id'])
+
+    # Add the entries to the data lookup table
+    data_lookup.loc[symbols,'id'] = ids
+
+    # Print the "afer" version
+    print(data_lookup.loc[symbols,'id'])
+
+    # Summarize what we did
+    print('We added {} lookups to the data lookup table using the HGNC lookup table; now the number of null entries in the data lookup table is {}'.format(nidentified, data_lookup.isnull()['id'].sum()))
+
+    # Separately, note that there are some duplicate Ensembl IDs in the HGNC database
+    counts = hgnc_lookup.loc[:,'id'].value_counts()
+    duplicates = list(counts.index[counts!=2])
+    print('Note: There are {} (out of {}) duplicate Ensembl IDs in the HGNC database:'.format(len(duplicates), int(len(hgnc_lookup)/2)))
+    print(data_lookup.loc[duplicates,'id'])
+
+    return(data_lookup)
