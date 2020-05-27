@@ -90,8 +90,19 @@ grep -E "^ENSG[0-9]{11}$" "${project_dir}data/unique_best_gene_names_uppercase.t
 grep -E -v "^ENSG[0-9]{11}$" "${project_dir}data/unique_best_gene_names_uppercase.txt" > "${project_dir}data/unique_other_names.txt" # 54,995 of these
 ```
 
+Create a gene lookup table generation using HGNC's Biomart:
+
+ 1. Go [here](https://biomart.genenames.org)
+ 1. Click on the [Gene mart](https://biomart.genenames.org/martform/#!/default/HGNC?datasets=hgnc_gene_mart)
+ 1. Deselect "Status" and "Approved name" and select "Ensembl gene ID" (URL then changes to [this](https://biomart.genenames.org/martform/#!/default/HGNC?datasets=hgnc_gene_mart&attributes=hgnc_gene__hgnc_gene_id_1010%2Chgnc_gene__approved_symbol_1010%2Chgnc_gene__ensembl_gene__ensembl_gene_id_104))
+ 1. Select "Go" at the bottom
+ 1. URL doesn't seem to change; it is still [this](https://biomart.genenames.org/martform/#!/default/HGNC?datasets=hgnc_gene_mart&attributes=hgnc_gene__hgnc_gene_id_1010%2Chgnc_gene__approved_symbol_1010%2Chgnc_gene__ensembl_gene__ensembl_gene_id_104)
+ 1. Click on "Download data", which downloads a file called `results.txt` containing tab-separated data
+ 1. Copy this local file to `${project_dir}data/gene_lookup_table.txt`
+
 ## Next up
 
 * Use `${project_dir}data/uniformity_check.txt` and Mark's most recent email to write blocks in the `extract_data()` function (one of which is already there) to process the files of each format into TSV files that we can later read into a Pandas dataframe using the `load_tsv_files()` function in the `target_class_lib.py` Python library.
-* In doing this, I need to pick up with hopefully hearing back from the Ensembl team about how to perform a POST-like operation using their xrefs method, and then implement it on the remaining unknown gene names in the Python version of the global lookup table... after that I will have done the best that I can and can start extracting the data from the datafiles using extract_data() or a Python version of that (bottom line was I needed to try my best to obtain an Ensembl ID for each of the 128,610 unique gene names!)
 * Don't forget to run the overall processes by Mark, in particular, see my partial Collaborate page to him
+* Don’t forget to address names with slashes in theme, see e.g. the comment in target_class_lib.py; basically, we can just search the output for WARNING perhaps
+* Pick up with adding the HGNC table entries to the lookup table probably, and summarizing all known genes and not-known genes and run it all by Mark, after reviewing these two lookup tables I have so far; perhaps explore how many non-null Ensembl IDs are in each lookup table and perhaps comparing those sets!... bottom line was I needed to try my best to obtain an Ensembl ID for each of the 128,610 unique gene names!

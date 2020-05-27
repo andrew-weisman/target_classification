@@ -37,6 +37,7 @@ def load_tsv_files(datadir):
 
 # This function performs a POST or GET from a list containing "names", which can be symbols, IDs, or other
 # This is modified from https://rest.ensembl.org/documentation/info/symbol_post (and the other two endpoints' links)
+# Note that the result appears to come out unsorted, so that when doing a self.keys() on the result, it's in a different order than names_list
 def ensembl_name_request(endpoint, names_list, wait_time=1):
 
     # Import relevant modules
@@ -198,6 +199,7 @@ def get_lookup_list(endpoint, names_file, max_list_len=None, max_iter=-1):
 
 
 # Generate or read in the initial lookup lists that can be calculated by querying the Ensembl REST API
+# As long as the README.md steps are followed, everything should be uppercase
 def get_initial_lookup_lists(project_dir):
 
     # Import relevant modules
@@ -269,9 +271,10 @@ def get_missing_lookups(pickle_dir, pickle_file, to_xref_single_list, max_num_na
             tci.make_pickle(missing_lookup_list, pickle_dir, pickle_file)
 
     else:
-        print('Skipping file {} as it already exists'.format(pickle_file))
+        #print('Skipping file {} as it already exists'.format(pickle_file))
+        missing_lookup_list = tci.load_pickle(pickle_dir, pickle_file)
 
-    return()
+    return(missing_lookup_list)
 
 
 # Yield successive n-sized chunks from l
@@ -283,7 +286,7 @@ def divide_chunks(l, n):
 
 
 # Go through symbol_lookup_list, split into chunks all the names that don't have Ensembl IDs, and try to determine them if the pickle file corresponding to each chunk doesn't yet exist
-def save_missing_lookups_in_chunks(symbol_lookup_list, project_dir, chunk_size=1000):
+def get_missing_lookups_in_chunks(symbol_lookup_list, project_dir, chunk_size=1000, pickle_dir_single='missing_lookup_lists'):
 
     # Import relevant module
     import os
@@ -298,13 +301,90 @@ def save_missing_lookups_in_chunks(symbol_lookup_list, project_dir, chunk_size=1
     to_xref_lists = list(divide_chunks(to_xref, chunk_size))
 
     # Set the directory to save the missing lists in and create it if it doesn't already exist
-    pickle_dir = os.path.join(project_dir,'data','missing_lookup_lists')
+    pickle_dir = os.path.join(project_dir,'data',pickle_dir_single)
     if not os.path.exists(pickle_dir):
         os.mkdir(pickle_dir)
 
     # For each sub-list in to_xref, if the corresponding pickle file doesn't already exist, go through the names and try to determine their Ensembl IDs using the xref endpoint of the Ensembl REST API, and save the pickle file
+    missing_lookups = []
     for ilist, to_xref_single_list in enumerate(to_xref_lists):
         pickle_file = 'missing_lookup_list_{:03d}.pkl'.format(ilist)
-        get_missing_lookups(pickle_dir, pickle_file, to_xref_single_list, max_num_names=-1)
+        missing_lookups.append(get_missing_lookups(pickle_dir, pickle_file, to_xref_single_list, max_num_names=-1))
 
-    return()
+    return(missing_lookups)
+
+
+# From the two initial lookup lists and the set of chunks of "missing" lookups, create the full lookup table as a Pandas dataframe
+# This contains a row corresponding to every unique name present in the data
+# All the values are populated using the three endpoints of the REST API
+# Everything should be uppercase
+def get_data_lookup_table(id_lookup_list, symbol_lookup_list, missing_lookup_chunks):
+
+    # Import relevant modules
+    import pandas as pd
+    import numpy as np
+
+    # Combine the two "initial" lookup lists
+    data = id_lookup_list + symbol_lookup_list
+
+    # Create the initial Pandas lookup dataframe
+    df = pd.DataFrame(data=[x[1] for x in data], index=[x[0] for x in data], columns=['id'])
+
+    # Print the number of nulls/Nones in the initial lookup dataframe
+    nnull_initial = df.isnull()['id'].sum()
+    print('Out of {} entries in the initial lookup table, {} are null'.format(len(df), nnull_initial)) # this is a good check for the number of Nones in the two inital lists (id_lookup_list and symbol_lookup_list)
+
+    # Create the indexes and values of lists to assign in the lookup table from the missing lookups
+    indexes = []
+    values = []
+    for chunk in missing_lookup_chunks:
+        for item in chunk:
+            if item[1] is not None:
+                #nnotnones = nnotnones + 1 # this was a good check for how many we identified (based on the .out files), so it gives us confidence that we're setting the indexes and values correctly
+                indexes.append(item[0])
+                values.append(item[1])
+
+    # Add the "missing" entries to the "initial" lookup table
+    df.loc[indexes,'id'] = values
+
+    # Print the new number of nulls/Nones in the better-filled-in lookup dataframe after checking that the number added makes sense
+    nnull_final = df.isnull()['id'].sum()
+    nadded = len(values)
+    assert(nnull_initial-nadded==nnull_final)
+    print('{} entries have been added to the lookup table, so now {} are null'.format(nadded, nnull_final))
+
+    # Add a label to the index
+    df = df.rename_axis(index='name')
+
+    # Return the final lookup table
+    return(df)
+
+
+# Create a lookup table using the output from the Biomart website
+# This contains only rows from the HGNC table in which Ensembl IDs have been assigned; nothing pertains to the datafiles themselves
+# Everything is uppercase
+def get_hgnc_lookup_table(project_dir):
+
+    # Import relevant modules
+    import pandas as pd
+    import os
+
+    # Read the result.txt file created by the Biomart website
+    df = pd.read_csv(os.path.join(project_dir,'data','gene_lookup_table.txt'), sep='\t', names=['hgnc','symbol','id'], header=0)
+
+    # Delete rows without an Ensembl ID and make the contents of the symbol and id columns uppercase
+    df = df.dropna(axis='index') # this should result in 38,956 non-header rows --> it does
+    df['symbol'] = df['symbol'].apply(lambda x: x.upper())
+    df['id'] = df['id'].apply(lambda x: x.upper())
+
+    # Set the index to be the symbol column, delete that column and the HGNC ID column, and rename the index
+    df = df.set_index('symbol')
+    df = df.drop(columns='hgnc')
+    df = df.rename_axis(index='name')
+
+    # Duplicate the table but this time using the Ensembl IDs as the index labels
+    df2 = df.set_index(df['id'])
+    df2 = df2.rename_axis(index='name')
+
+    # Return the two table stacked into one
+    return(pd.concat([df2,df]))
