@@ -103,6 +103,4 @@ Create a gene lookup table generation using HGNC's Biomart:
 ## Next up
 
 * Use `${project_dir}data/uniformity_check.txt` and Mark's most recent email to write blocks in the `extract_data()` function (one of which is already there) to process the files of each format into TSV files that we can later read into a Pandas dataframe using the `load_tsv_files()` function in the `target_class_lib.py` Python library.
-* Don't forget to run the overall processes by Mark, in particular, see my partial Collaborate page to him
 * Don’t forget to address names with slashes in theme, see e.g. the comment in target_class_lib.py; basically, we can just search the output for WARNING perhaps
-* Summarize all known genes and not-known genes and run it all by Mark... bottom line was I needed to try my best to obtain an Ensembl ID for each of the 128,610 unique gene names!
