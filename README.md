@@ -100,7 +100,19 @@ Create a gene lookup table generation using HGNC's Biomart:
  1. Click on "Download data", which downloads a file called `results.txt` containing tab-separated data
  1. Copy this local file to `${project_dir}data/gene_lookup_table.txt`
 
+Extract the datafiles into consistently-formatted TSV files to be subsequently read into Pandas dataframes in Python (this also writes the project and file metadata to a JSON file):
+
+```bash
+# This takes about 5 minutes
+# This creates ${project_dir}data/tsv_files and all the .tsv files within it, as well as ${project_dir}data/metadata.json
+extract_data "https://target-data.nci.nih.gov/" "${project_dir}data/" |& tee "${working_dir}extract_data_out_and_err.txt"
+```
+
 ## Next up
 
 * Use `${project_dir}data/uniformity_check.txt` and Mark's most recent email to write blocks in the `extract_data()` function (one of which is already there) to process the files of each format into TSV files that we can later read into a Pandas dataframe using the `load_tsv_files()` function in the `target_class_lib.py` Python library.
 * Don’t forget to address names with slashes in theme, see e.g. the comment in target_class_lib.py; basically, we can just search the output for WARNING perhaps
+* Look for duplicate data and probably delete the ones that are subsets of the other, e.g.
+* Use other names to help identify other synonyms
+* At the end, confirm all IDs are in the current Ensembl version
+* Explore the data we're given, e.g., in format #8, the status is LOW DATA, should we include these?

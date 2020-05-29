@@ -361,134 +361,6 @@ print('Total number of files: {}'.format(sum(nfiles_holder)))
 }
 
 
-# Main function to call directly in order to extract the datafiles into TSV files to be subsequently read into Pandas dataframes in Python
-extract_data() {
-
-    # Sample call:
-    #   extract_data "https://target-data.nci.nih.gov/" "${project_dir}data/"
-
-    # Parameters
-    base_url=$1
-    datadir=$2
-
-    # Constant
-    file_index="${datadir}all_files_in_tree.txt"
-
-    # Create a directory to hold the TSV files
-    tsv_dir="${datadir}tsv_files/"
-    if [ ! -d "$tsv_dir" ]; then
-        mkdir "$tsv_dir"
-    else
-        echo "ERROR: TSV file directory '$tsv_dir' already exists"
-        exit 8
-    fi
-
-    # Set the JSON filenames
-    filedata_json="${datadir}filedata.json"
-    metadata_json="${datadir}metadata.json"
-
-    # Append "tree" to the data directory
-    datadir="${datadir}tree/"
-
-    # Get the list of files that should have been downloaded using the full list of indexed files
-    datafiles=$(get_datafile_list "$file_index")
-    ndatafiles=$(echo "$datafiles" | awk '{print NF}')
-
-    # For each datafile...
-    idatafile=0
-    for datafile in $datafiles; do
-
-        # Determine the local filename and the weblink where it's theoretically located
-        filename="$datadir${datafile}"
-        weblink="$base_url$datafile"
-
-        # If the downloaded file doesn't exist, exit with an error; otherwise, extract its data
-        if [ ! -f "$filename" ]; then
-            echo "ERROR: Datafile '$filename' does not exist"
-            exit 7
-        else
-
-            # Output the current file we're processing
-            echo "Processing $filename..."
-
-            # Define the name of the TSV file we're going to create
-            tsv_file="${tsv_dir}tsv_file_$(printf "%07i" $idatafile)"
-
-
-
-            #### Don't forget to save this to the JSON file as well!!!!
-            format_num=$(determine_file_format "$filename" "$datadir/unique_headers.txt" "$datadir/unique_basenames.txt")
-            
-
-
-            # For now, assuming a uniform type of file, process the file accordingly, saving the result in the current TSV file (next up: create such a block for each file format!!)
-            awk '{
-                if (NR==1)
-                    printf("%s\t%s\t%s\n", "gene-symbol", "gene-id", toupper($4))
-                else {
-                    split($1, arr, "|")
-                    printf("%s\t%s\t%s\n", toupper(arr[1]), toupper(arr[2]), $4)
-                }
-            }' "$filename" > "$tsv_file"
-
-
-
-            # Save the data corresponding to each file so we can later create a JSON file of all the file data
-            if [ "x$ndatafiles" != "x1" ]; then
-                if [ "x$idatafile" == "x0" ]; then
-                    filenames="['$filename'"
-                    weblinks="['$weblink'"
-                    idatafiles="[$idatafile"
-                    tsv_files="['$tsv_file'"
-                elif [ "x$idatafile" == "x$((ndatafiles-1))" ]; then
-                    filenames="$filenames, '$filename']"
-                    weblinks="$weblinks, '$weblink']"
-                    idatafiles="$idatafiles, $idatafile]"
-                    tsv_files="$tsv_files, '$tsv_file']"
-                else
-                    filenames="$filenames, '$filename'"
-                    weblinks="$weblinks, '$weblink'"
-                    idatafiles="$idatafiles, $idatafile"
-                    tsv_files="$tsv_files, '$tsv_file'"
-                fi
-            else
-                filenames="['$filename']"
-                weblinks="['$weblink']"
-                idatafiles="[$idatafile]"
-                tsv_files="['$tsv_file']"
-            fi
-
-        fi
-
-        # Increate the datafile index
-        idatafile=$((idatafile+1))
-        
-    done
-
-    # Save the file data to a JSON file
-    echo "
-    filedata = {
-        'filenames': $filenames,
-        'weblinks': $weblinks,
-        'idatafiles': $idatafiles,
-        'tsv_files': $tsv_files
-    }
-    " > "$filedata_json"
-
-    # Save the metadata to a JSON file
-    echo "
-    metadata = {
-        'base_url': '$base_url',
-        'datadir': '$datadir',
-        'file_index': '$file_index',
-        'working_dir': '$(pwd)',
-        'ndatafiles': $ndatafiles
-    }
-    " > "$metadata_json"
-
-}
-
-
 # Extract the "best" gene name from a line in a file of each type
 get_best_gene_name_from_file() {
     format_num=$1
@@ -608,96 +480,307 @@ get_best_gene_names_from_all_files() {
 }
 
 
+# Given a raw data file, process it using awk to make it a more uniform format prior to reading into Pandas
+get_uniform_version_of_file() {
+    format_num=$1
+    filename=$2
+    case "$format_num" in
+        1) # done
+            awk '{
+                if (NR==1)
+                    #printf("%s\t%s\t%s\t%s\t%s\n", "id", "tpm", "mean_length", "mean_eff_length", "est_counts")
+                    printf("%s\t%s\t%s\t%s\t%s\n", "name", "tpm", "mean_length", "mean_eff_length", "est_counts")
+                else {
+                    printf("%s\t%s\t%s\t%s\t%s\n", toupper($1), $5, $2, $3, $4)
+                }
+            }' "$filename"
+            ;;
+        2) # done
+            awk '{
+                if (NR==1)
+                    printf("%s\t%s\t%s\n", "name", "fpkm", "fpkm_normalized")
+                else {
+                    printf("%s\t%s\t%s\n", toupper($1), $2, $3)
+                }
+            }' "$filename"
+            ;;
+        3) # done
+            awk '{
+                if (NR==1)
+                    printf("%s\t%s\t%s\n", "name", "rpkm", "raw_count")
+                else {
+                    printf("%s\t%s\t%s\n", toupper($1), $3, $2)
+                }
+            }' "$filename"
+            ;;
+        4) # done
+            awk '{
+                if (NR==1)
+                    #printf("%s\t%s\t%s\t%s\t%s\n", "id", "rpkm", "name", "raw_counts", "median_length_normalized")
+                    printf("%s\t%s\t%s\t%s\t%s\n", "name", "rpkm", "name2", "raw_counts", "median_length_normalized")
+                else {
+                    split($1, arr, "|")
+                    printf("%s\t%s\t%s\t%s\t%s\n", toupper(arr[2]), $4, toupper(arr[1]), $2, $3)
+                }
+            }' "$filename"
+            ;;
+        5) # done
+            awk '{
+                if (NR==1)
+                    printf("%s\t%s\t%s\t%s\n", "name", "rpkm", "raw_counts", "median_length_normalized")
+                else {
+                    printf("%s\t%s\t%s\t%s\n", toupper($1), $4, $2, $3)
+                }
+            }' "$filename"
+            ;;
+        6) # done
+            awk '{
+                if (NR==1)
+                    printf("%s\t%s\t%s\t%s\t%s\n", "name", "tpm", "length", "effective_length", "num_reads")
+                else {
+                    split($1, arr, ".")
+                    printf("%s\t%s\t%s\t%s\t%s\n", toupper(arr[1]), $4, $2, $3, $5)
+                }
+            }' "$filename"
+            ;;
+        7) # done
+            awk '{
+                if (NR==1)
+                    printf("%s\t%s\n", "name", "UNKNOWN")
+                else {
+                    printf("%s\t%s\n", toupper($1), $2)
+                }
+            }' "$filename"
+            ;;
+        8) # done
+            awk '{
+                if (NR==1)
+                    printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "name", "fpkm", "name2", "name3", "class_code", "nearest_ref_id", "tss_id", "locus", "length", "coverage", "fpkm_conf_lo", "fpkm_conf_hi", "fpkm_status")
+                else {
+                    printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", toupper($1), $10, toupper($4), toupper($5), $2, $3, $6, $7, $8, $9, $11, $12, $13)
+                }
+            }' "$filename"
+            ;;
+        *)
+            echo "ERROR: Unknown format number ($format_num)"
+            exit
+            ;;
+    esac
+}
 
 
+# Main function to call directly in order to extract the datafiles into TSV files to be subsequently read into Pandas dataframes in Python
+# It also writes the project and file metadata
+extract_data() {
 
-# Create a file containing three columns for each unique best gene name in the entire dataset: (1) the number of matches of symbols from the lookup table, (2) the number of matches of the IDs from the lookup table, (3) the unique best gene name itself
-show_whether_genes_are_known() {
     # Sample call:
-    #   show_whether_genes_are_known "${project_dir}data/" "$working_dir"
+    #   extract_data "https://target-data.nci.nih.gov/" "${project_dir}data/" |& tee "${working_dir}extract_data_out_and_err.txt"
 
     # Parameters
-    datadir=$1
-    working_dir=$2
+    base_url=$1
+    datadir=$2
 
-    # Ensure we're not overwriting an already created output file
-    if [ -f "${datadir}whether_genes_are_known.txt" ]; then
-        echo "ERROR: Output file ${datadir}whether_genes_are_known.txt already exists"
-        exit
+    # Constant
+    file_index="${datadir}all_files_in_tree.txt"
+
+    # Create a directory to hold the TSV files
+    tsv_dir="${datadir}tsv_files/"
+    if [ ! -d "$tsv_dir" ]; then
+        mkdir "$tsv_dir"
+    else
+        echo "ERROR: TSV file directory '$tsv_dir' already exists"
+        exit 8
     fi
 
-    # Temporary files to go in the working directory
-    tmp_symbol_file="${working_dir}tmp_symbol_results.txt"
-    tmp_id_file="${working_dir}tmp_id_results.txt"
+    # Set the JSON filename
+    metadata_json="${datadir}metadata.json"
 
-    # For every unique best gene name in the entire dataset...
-    {
-        while read -r name; do
+    # Append "tree" to the data directory
+    datadir="${datadir}tree/"
 
-            # Export any matches in the symbols file
-            grep "$name" "${datadir}lookup_symbol_uppercase.txt" > "$tmp_symbol_file"
+    # Get the list of files that should have been downloaded using the full list of indexed files
+    datafiles=$(get_datafile_list "$file_index")
+    #ndatafiles=$(echo "$datafiles" | awk '{print NF}')
+    ndatafiles=$(echo $datafiles | awk '{print NF}') # not quoting this on purpose!
 
-            # Export any matches in the IDs file
-            grep "$name" "${datadir}lookup_id_uppercase.txt" > "$tmp_id_file"
+    # For each datafile...
+    idatafile=0
+    for datafile in $datafiles; do
 
-            # Output the number of matches in each file type, as well as the best gene name itself
-            echo -e "$(wc -l "$tmp_symbol_file" | awk '{print $1}')\t$(wc -l "$tmp_id_file" | awk '{print $1}')\t$name"
+        # Determine the local filename and the weblink where it's theoretically located
+        filename="$datadir${datafile}"
+        weblink="$base_url$datafile"
 
-        done < "${datadir}unique_best_gene_names_uppercase.txt"
-    } > "${datadir}whether_genes_are_known.txt"
-}
+        # If the downloaded file doesn't exist, exit with an error; otherwise, extract its data
+        if [ ! -f "$filename" ]; then
+            echo "ERROR: Datafile '$filename' does not exist"
+            exit 7
+        else
 
+            # Output the current file we're processing
+            echo "Processing $filename..."
 
-# For each of the four types of gene names identified in show_whether_genes_are_known() above (i.e., how they do in the HGNC lookup table), do as best as possible using the HGNC lookup table to get the Ensembl IDs, creating a full-size lookup table with blank third columns if really no Ensembl ID is currently known
-create_partial_global_lookup_table() {
-    # Sample call:;
-    #   create_partial_global_lookup_table "${project_dir}data/"
+            # Define the name of the TSV file we're going to create
+            tsv_file="${tsv_dir}tsv_file_$(printf "%07i" $idatafile).tsv"
 
-    # Parameter
-    datadir=$1
+            # Determine the format number of the current file
+            format_num=$(determine_file_format "$filename" "${datadir}../unique_headers.txt" "${datadir}../unique_basenames.txt")
+            
+            # Given a raw data file, process it using awk to make it a more uniform format prior to reading into Pandas
+            #echo $tsv_file
+            get_uniform_version_of_file "$format_num" "$filename" > "$tsv_file"
 
-    # Don't overwrite an already existing output file
-    if [ -f "${datadir}partial_global_lookup_table.txt" ]; then
-        echo "ERROR: Output file ${datadir}partial_global_lookup_table.txt already exists"
-        exit
-    fi
-
-    {
-
-        # Output the trivial lookup for these two sets, whose gene names are already the Ensembl IDs
-        awk '($1==0 && $2==1){split($3,arr,"|"); printf("lookup:\t%s\t%s\n", arr[2], arr[2])}' "${datadir}whether_genes_are_known.txt" # these are gene names that match to a single Ensembl ID, so we know the Ensembl ID for them (N=37822)
-        awk '($1==0 && $2==2){split($3,arr,"|"); printf("lookup:\t%s\t%s\n", arr[2], arr[2])}' "${datadir}whether_genes_are_known.txt" # these are gene names that match to 2 Ensembl IDs, but they are the same Ensembl ID obviously, so we know the Ensembl ID; there is no ambiguity for us (though there is for the HGNC database) (N=3)
-
-        # For every gene name that matches to a single symbol, see if an Ensembl ID exists in the HGNC lookup table and print out the lookup; otherwise make a note that no Ensembl ID exists
-        while read -r name; do
-            tail -n +2 "${datadir}gene_lookup_table.txt" | awk -v name="$name" '
-            BEGIN { count = 0 }
-            {
-                upper_2 = toupper($2)
-                if (upper_2==name && $3!="") {
-                    count++
-                    #printf("MATCH FOUND (%i):\t%s\t%s\n", count, toupper($3), upper_2)
-                    printf("lookup:\t%s\t%s\n", name, toupper($3))
-                }
-            }
-            END {
-                if (count==0) printf("unmatched:\t%s\n", name)
-            }
-            '
-        done < <(awk '($1==1 && $2==0){split($3,arr,"|"); print arr[2]}' "${datadir}whether_genes_are_known.txt") # these are gene names that match to a single HGNC symbol (N=27624)
-
-        # Output every gene name in this set as unmatched since it wasn't found at all in the HGNC lookup table, unless it's an Ensembl ID (remember the HGNC lookup table doesn't include all Ensembl IDs)
-        awk '($1==0 && $2==0){
-            split($3,arr,"|")
-            name = arr[2]
-            if (name ~ /^ENSG[0-9]{11}$/)
-                printf("lookup:\t%s\t%s\n", name, name)
+            # Save the data corresponding to each file so we can later create a JSON file of all the file data
+            if [ "x$ndatafiles" != "x1" ]; then
+                if [ "x$idatafile" == "x0" ]; then
+                    filenames="[\"$filename\""
+                    weblinks="[\"$weblink\""
+                    idatafiles="[$idatafile"
+                    tsv_files="[\"$tsv_file\""
+                    format_nums="[$format_num"
+                elif [ "x$idatafile" == "x$((ndatafiles-1))" ]; then
+                    filenames="$filenames, \"$filename\"]"
+                    weblinks="$weblinks, \"$weblink\"]"
+                    idatafiles="$idatafiles, $idatafile]"
+                    tsv_files="$tsv_files, \"$tsv_file\"]"
+                    format_nums="$format_nums, $format_num]"
+                else
+                    filenames="$filenames, \"$filename\""
+                    weblinks="$weblinks, \"$weblink\""
+                    idatafiles="$idatafiles, $idatafile"
+                    tsv_files="$tsv_files, \"$tsv_file\""
+                    format_nums="$format_nums, $format_num"
+                fi
             else
-                printf("unmatched:\t%s\n", name)
-        }' "${datadir}whether_genes_are_known.txt" # these are gene names that don't match anything in the lookup table (N=63161)
+                filenames="[\"$filename\"]"
+                weblinks="[\"$weblink\"]"
+                idatafiles="[$idatafile]"
+                tsv_files="[\"$tsv_file\"]"
+                format_nums="[$format_num]"
+            fi
 
-    } > "${datadir}partial_global_lookup_table.txt"
+        fi
+
+        # Increate the datafile index
+        idatafile=$((idatafile+1))
+        
+    done
+
+    # Save the metadata and file data to a JSON file
+    echo "
+    {
+        \"metadata\": {
+            \"base_url\": \"$base_url\",
+            \"datadir\": \"$datadir\",
+            \"file_index\": \"$file_index\",
+            \"working_dir\": \"$(pwd)\",
+            \"ndatafiles\": $ndatafiles
+        },
+        \"filedata\": {
+            \"filenames\": $filenames,
+            \"weblinks\": $weblinks,
+            \"idatafiles\": $idatafiles,
+            \"tsv_files\": $tsv_files,
+            \"format_nums\": $format_nums
+        }
+    }
+    " > "$metadata_json"
+
 }
+
+
+
+
+
+
+
+# # Create a file containing three columns for each unique best gene name in the entire dataset: (1) the number of matches of symbols from the lookup table, (2) the number of matches of the IDs from the lookup table, (3) the unique best gene name itself
+# show_whether_genes_are_known() {
+#     # Sample call:
+#     #   show_whether_genes_are_known "${project_dir}data/" "$working_dir"
+
+#     # Parameters
+#     datadir=$1
+#     working_dir=$2
+
+#     # Ensure we're not overwriting an already created output file
+#     if [ -f "${datadir}whether_genes_are_known.txt" ]; then
+#         echo "ERROR: Output file ${datadir}whether_genes_are_known.txt already exists"
+#         exit
+#     fi
+
+#     # Temporary files to go in the working directory
+#     tmp_symbol_file="${working_dir}tmp_symbol_results.txt"
+#     tmp_id_file="${working_dir}tmp_id_results.txt"
+
+#     # For every unique best gene name in the entire dataset...
+#     {
+#         while read -r name; do
+
+#             # Export any matches in the symbols file
+#             grep "$name" "${datadir}lookup_symbol_uppercase.txt" > "$tmp_symbol_file"
+
+#             # Export any matches in the IDs file
+#             grep "$name" "${datadir}lookup_id_uppercase.txt" > "$tmp_id_file"
+
+#             # Output the number of matches in each file type, as well as the best gene name itself
+#             echo -e "$(wc -l "$tmp_symbol_file" | awk '{print $1}')\t$(wc -l "$tmp_id_file" | awk '{print $1}')\t$name"
+
+#         done < "${datadir}unique_best_gene_names_uppercase.txt"
+#     } > "${datadir}whether_genes_are_known.txt"
+# }
+
+
+# # For each of the four types of gene names identified in show_whether_genes_are_known() above (i.e., how they do in the HGNC lookup table), do as best as possible using the HGNC lookup table to get the Ensembl IDs, creating a full-size lookup table with blank third columns if really no Ensembl ID is currently known
+# create_partial_global_lookup_table() {
+#     # Sample call:;
+#     #   create_partial_global_lookup_table "${project_dir}data/"
+
+#     # Parameter
+#     datadir=$1
+
+#     # Don't overwrite an already existing output file
+#     if [ -f "${datadir}partial_global_lookup_table.txt" ]; then
+#         echo "ERROR: Output file ${datadir}partial_global_lookup_table.txt already exists"
+#         exit
+#     fi
+
+#     {
+
+#         # Output the trivial lookup for these two sets, whose gene names are already the Ensembl IDs
+#         awk '($1==0 && $2==1){split($3,arr,"|"); printf("lookup:\t%s\t%s\n", arr[2], arr[2])}' "${datadir}whether_genes_are_known.txt" # these are gene names that match to a single Ensembl ID, so we know the Ensembl ID for them (N=37822)
+#         awk '($1==0 && $2==2){split($3,arr,"|"); printf("lookup:\t%s\t%s\n", arr[2], arr[2])}' "${datadir}whether_genes_are_known.txt" # these are gene names that match to 2 Ensembl IDs, but they are the same Ensembl ID obviously, so we know the Ensembl ID; there is no ambiguity for us (though there is for the HGNC database) (N=3)
+
+#         # For every gene name that matches to a single symbol, see if an Ensembl ID exists in the HGNC lookup table and print out the lookup; otherwise make a note that no Ensembl ID exists
+#         while read -r name; do
+#             tail -n +2 "${datadir}gene_lookup_table.txt" | awk -v name="$name" '
+#             BEGIN { count = 0 }
+#             {
+#                 upper_2 = toupper($2)
+#                 if (upper_2==name && $3!="") {
+#                     count++
+#                     #printf("MATCH FOUND (%i):\t%s\t%s\n", count, toupper($3), upper_2)
+#                     printf("lookup:\t%s\t%s\n", name, toupper($3))
+#                 }
+#             }
+#             END {
+#                 if (count==0) printf("unmatched:\t%s\n", name)
+#             }
+#             '
+#         done < <(awk '($1==1 && $2==0){split($3,arr,"|"); print arr[2]}' "${datadir}whether_genes_are_known.txt") # these are gene names that match to a single HGNC symbol (N=27624)
+
+#         # Output every gene name in this set as unmatched since it wasn't found at all in the HGNC lookup table, unless it's an Ensembl ID (remember the HGNC lookup table doesn't include all Ensembl IDs)
+#         awk '($1==0 && $2==0){
+#             split($3,arr,"|")
+#             name = arr[2]
+#             if (name ~ /^ENSG[0-9]{11}$/)
+#                 printf("lookup:\t%s\t%s\n", name, name)
+#             else
+#                 printf("unmatched:\t%s\n", name)
+#         }' "${datadir}whether_genes_are_known.txt" # these are gene names that don't match anything in the lookup table (N=63161)
+
+#     } > "${datadir}partial_global_lookup_table.txt"
+# }
 
 
 # lookup() {
@@ -735,3 +818,32 @@ create_partial_global_lookup_table() {
 # endpoint_xrefs_symbol="xrefs/symbol/homo_sapiens/"
 # #curl "${base_url}${endpoint_lookup_symbol}" -H 'Content-type:application/json' -H 'Accept:application/json' -X POST -d '{ "symbols" : ["ENSG00000259762", "ENSG00000259937", "NAMPTL", "MINOS1P3", "MINOS1P4", "AC000029.1", "AC007253.1", "A3GALT2P", "A1BG"] }'
 # curl "${base_url}${endpoint_xrefs_symbol}" -H 'Content-type:application/json' -H 'Accept:application/json' -X POST -d '{ "symbols" : ["ENSG00000259762", "ENSG00000259937", "NAMPTL", "MINOS1P3", "MINOS1P4", "AC000029.1", "AC007253.1", "A3GALT2P", "A1BG"] }'
+
+
+testing() {
+
+    #filename="/data/BIDS-HPC/private/projects/dmi/data/tree/Public/OS/Toronto/mRNA-seq/L3/expression/NCI-Meltzer/TARGET-40-0A4HLQ-01A-01R.gene.quantification.txt" # 1
+    #filename="/data/BIDS-HPC/private/projects/dmi/data/tree/Public/ALL/mRNA-seq/Phase2/L3/expression/StJude/TARGET-10-PARASZ-09A-01R.expression.txt" # 2
+    #filename="/data/BIDS-HPC/private/projects/dmi/data/tree/Public/AML/mRNA-seq/L3/expression/NCI-Meerzaman/AML_23196.gene.quantification.txt" # 3
+    #filename="/data/BIDS-HPC/private/projects/dmi/data/tree/Public/ALL/mRNA-seq/Phase1/L3/expression/BCCA/HS0825.gene.quantification.txt" # 4
+    #filename="/data/BIDS-HPC/private/projects/dmi/data/tree/Public/ALL/mRNA-seq/Phase1/L3/expression/StJude/SJBALL010.gene.quantification.txt" # 5
+    #filename="/data/BIDS-HPC/private/projects/dmi/data/tree/Public/OS/mRNA-seq/L3/expression/NCI-Meltzer/TARGET-40-0A4HLD-01A-01R.gene.quantification.txt" # 6
+    #filename="/data/BIDS-HPC/private/projects/dmi/data/tree/Public/NBL/gene_expression_array/L3/gene/Core/chla.org_NBL.HumanExon.Level-3.BER.core_gene.TARGET-30-PAAPFA-01A-01R.txt" # 7
+    filename="/data/BIDS-HPC/private/projects/dmi/data/tree/Public/CCSK/mRNA-seq/L3/expression/NCI-Khan/CCSK002.gene.fpkm.txt" # 8
+    format_num=8
+
+    awk '{
+        if (NR==1)
+            printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "name", "fpkm", "name2", "name3", "class_code", "nearest_ref_id", "tss_id", "locus", "length", "coverage", "fpkm_conf_lo", "fpkm_conf_hi", "fpkm_status")
+        else {
+            printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", toupper($1), $10, toupper($4), toupper($5), $2, $3, $6, $7, $8, $9, $11, $12, $13)
+        }
+    }' "$filename"
+
+    # awk -v format_num="$format_num" -v filename="$filename" '{
+    #     if (NR!=1) {
+    #         printf("%s\t%s\t%s\n", toupper($1), format_num, filename)
+    #     }
+    # }' "$filename"
+
+}
