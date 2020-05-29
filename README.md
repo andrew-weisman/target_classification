@@ -110,9 +110,10 @@ extract_data "https://target-data.nci.nih.gov/" "${project_dir}data/" |& tee "${
 
 ## Next up
 
-* Use `${project_dir}data/uniformity_check.txt` and Mark's most recent email to write blocks in the `extract_data()` function (one of which is already there) to process the files of each format into TSV files that we can later read into a Pandas dataframe using the `load_tsv_files()` function in the `target_class_lib.py` Python library.
-* Don’t forget to address names with slashes in theme, see e.g. the comment in target_class_lib.py; basically, we can just search the output for WARNING perhaps
+* Perhaps read the TSV files into a Pandas dataframe using the `load_tsv_files()` function in the `target_class_lib.py` Python library... probably read them all into their own Pandas dataframes first
+* Don’t forget to address names with slashes in them, see e.g. the comment in target_class_lib.py; basically, we can just search the output for WARNING perhaps
 * Look for duplicate data and probably delete the ones that are subsets of the other, e.g.
-* Use other names to help identify other synonyms
-* At the end, confirm all IDs are in the current Ensembl version
+* Use other names to help identify other synonyms... go through get_uniform_version_of_file() function and search for "name"
+* At the end of gene name resolution, confirm all IDs are in the current Ensembl version
 * Explore the data we're given, e.g., in format #8, the status is LOW DATA, should we include these?
+* Ask Patee about being able to trust that all datafiles in Public/ are tumor data of the type specified simply by the directory name
