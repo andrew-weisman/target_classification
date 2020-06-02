@@ -463,3 +463,29 @@ def incorporate_hgnc_lookups(data_lookup, hgnc_lookup):
     print(data_lookup.loc[duplicates,'id'])
 
     return(data_lookup)
+
+
+# Add the contents of a main or xref (corresponding to a .gtf or .tsv file) processed TSV file to a dataframe using both the id and name columns as indexes
+def add_tsv_file_to_lookup(lookup, tsv_file):
+
+    # Import relevant module
+    import pandas as pd
+
+    # Read in the TSV file into a Pandas dataframe
+    df = pd.read_csv(tsv_file, sep='\t')
+
+    # Capitalize the id and name columns and convert them to lists
+    id_list = df['id'].apply(lambda x: x.upper()).to_list()
+    name_list = df['name'].apply(lambda x: x.upper()).to_list()
+
+    # Create the data dictionary to add twice (or just once, with the name list as the index), once with the id list as the index and then with the name list as the index
+    if 'version' in df.keys(): # if a "main" (not "xref") TSV file
+        data = {'id': id_list, 'id_version': df['version'].to_list(), 'biotype': df['biotype'].to_list(), 'tsv_file': tsv_file}
+    else:
+        data = {'id': id_list, 'id_version': None, 'biotype': None, 'tsv_file': tsv_file}
+
+    # Return the concatenated input lookup dataframe and the two (or one) new dataframes, which again have the same data but different indexes
+    if 'version' in df.keys(): # if a "main" (not "xref") TSV file
+        return(pd.concat([lookup, pd.DataFrame(index=id_list, data=data), pd.DataFrame(index=name_list, data=data)]))
+    else:
+        return(pd.concat([lookup, pd.DataFrame(index=name_list, data=data)]))
