@@ -689,6 +689,134 @@ extract_data() {
 }
 
 
+# Process a GTF file using awk for read-in using Python into a Pandas dataframe
+process_gtf_file() {
+    full_path=$1
+    awk '
+        BEGIN {
+            printf("%s\t%s\t%s\t%s\n", "id", "version", "name", "biotype")
+        }
+        $3=="gene" {
+            split($10, id, "\"")
+            split($12, version, "\"")
+            split($14, name, "\"")
+            split($18, biotype, "\"")
+            printf("%s\t%s\t%s\t%s\n", id[2], version[2], name[2], biotype[2])
+        }
+    ' "$full_path"
+}
+
+
+# Create processed TSV files for use by Pandas to generate a lookup table
+make_tsv_files_for_lookup_table() {
+    # Sample call:
+    #   make_tsv_files_for_lookup_table /data/BIDS-HPC/private/projects/dmi/
+
+    # Input (needs trailing forward slash at end of project directory path)
+    project_dir=$1
+
+    # Create the directory to contain the processed files for reading into Pandas, if it doesn't already exist
+    if [ ! -d "${project_dir}data/processed_files_for_lookup" ]; then
+        mkdir "${project_dir}data/processed_files_for_lookup"
+    fi
+
+    #### Process the GTF files if they don't already exist
+
+    # This is the most up-to-date version of the human genome from Ensembl
+    # ftp://ftp.ensembl.org/pub//release-100/gtf/homo_sapiens/Homo_sapiens.GRCh38.100.gtf.gz
+    if [ ! -f "${project_dir}data/processed_files_for_lookup/main_38.tsv" ]; then
+        process_gtf_file "${project_dir}data/ensembl_ftp_site/grch38/Homo_sapiens.GRCh38.100.gtf" > "${project_dir}data/processed_files_for_lookup/main_38.tsv"
+    fi
+
+    # This is the most recent update to the prior version of the human genome from Ensembl
+    # ftp://ftp.ensembl.org/pub//grch37/release-87/gtf/homo_sapiens/Homo_sapiens.GRCh37.87.gtf.gz (the most recent version actually links to release 87)
+    if [ ! -f "${project_dir}data/processed_files_for_lookup/main_37.tsv" ]; then
+        process_gtf_file "${project_dir}data/ensembl_ftp_site/grch37/Homo_sapiens.GRCh37.87.gtf" > "${project_dir}data/processed_files_for_lookup/main_37.tsv"
+    fi
+
+    # This is the genome release (GRCh38.p2) corresponding to Gencode release #22 (https://www.gencodegenes.org/human/release_22.html), which is what the GDC Data Portal uses as its data set, e.g. https://gdc.cancer.gov/about-data/data-harmonization-and-generation/gdc-reference-files
+    # ftp://ftp.ensembl.org/pub//release-80/gtf/homo_sapiens/Homo_sapiens.GRCh38.80.gtf.gz
+    if [ ! -f "${project_dir}data/processed_files_for_lookup/main_38-80.tsv" ]; then
+        process_gtf_file "${project_dir}data/ensembl_ftp_site/grch38/release-80/Homo_sapiens.GRCh38.80.gtf" > "${project_dir}data/processed_files_for_lookup/main_38-80.tsv"
+    fi
+
+    # This is the ena synonyms file for the most recent version
+    # ftp://ftp.ensembl.org/pub/release-100/tsv/homo_sapiens/Homo_sapiens.GRCh38.100.ena.tsv.gz
+    if [ ! -f "${project_dir}data/processed_files_for_lookup/xref_38-ena.tsv" ]; then
+        {
+            echo -e "id\tname"
+            awk -v FS="\t" '{printf("%s\t%s\n", $3, $7)}' "${project_dir}data/ensembl_ftp_site/grch38/Homo_sapiens.GRCh38.100.ena.tsv" | awk 'NF==2{print}' | tail -n +2 | sort -u
+        } > "${project_dir}data/processed_files_for_lookup/xref_38-ena.tsv"
+    fi
+
+    # This is the entrez synonyms file for the most recent version
+    # ftp://ftp.ensembl.org/pub/release-100/tsv/homo_sapiens/Homo_sapiens.GRCh38.100.entrez.tsv.gz
+    if [ ! -f "${project_dir}data/processed_files_for_lookup/xref_38-entrez.tsv" ]; then
+        {
+            echo -e "id\tname"
+            awk -v FS="\t" '{printf("%s\t%s\n", $1, $4)}' "${project_dir}data/ensembl_ftp_site/grch38/Homo_sapiens.GRCh38.100.entrez.tsv" | tail -n +2 | sort -u
+        } > "${project_dir}data/processed_files_for_lookup/xref_38-entrez.tsv"
+    fi
+
+    # This is the refseq synonyms file for the most recent version
+    # ftp://ftp.ensembl.org/pub/release-100/tsv/homo_sapiens/Homo_sapiens.GRCh38.100.refseq.tsv.gz
+    if [ ! -f "${project_dir}data/processed_files_for_lookup/xref_38-refseq.tsv" ]; then
+        {
+            echo -e "id\tname"
+            awk -v FS="\t" '{printf("%s\t%s\n", $1, $4)}' "${project_dir}data/ensembl_ftp_site/grch38/Homo_sapiens.GRCh38.100.refseq.tsv" | tail -n +2 | sort -u
+        } > "${project_dir}data/processed_files_for_lookup/xref_38-refseq.tsv"
+    fi
+
+    # This is the uniprot synonyms file for the most recent version
+    # ftp://ftp.ensembl.org/pub/release-100/tsv/homo_sapiens/Homo_sapiens.GRCh38.100.uniprot.tsv.gz
+    if [ ! -f "${project_dir}data/processed_files_for_lookup/xref_38-uniprot.tsv" ]; then
+        {
+            echo -e "id\tname"
+            awk -v FS="\t" '{printf("%s\t%s\n", $1, $4)}' "${project_dir}data/ensembl_ftp_site/grch38/Homo_sapiens.GRCh38.100.uniprot.tsv" | tail -n +2 | sort -u
+        } > "${project_dir}data/processed_files_for_lookup/xref_38-uniprot.tsv"
+    fi
+
+    # This is the uniprot synonyms file for the most recent version of GRCh37
+    # ftp://ftp.ensembl.org/pub/grch37/release-85/tsv/homo_sapiens/Homo_sapiens.GRCh37.85.uniprot.tsv.gz
+    if [ ! -f "${project_dir}data/processed_files_for_lookup/xref_37-uniprot.tsv" ]; then
+        {
+            echo -e "id\tname"
+            awk -v FS="\t" '{printf("%s\t%s\n", $1, $4)}' "${project_dir}data/ensembl_ftp_site/grch37/Homo_sapiens.GRCh37.85.uniprot.tsv" | tail -n +2 | sort -u
+        } > "${project_dir}data/processed_files_for_lookup/xref_37-uniprot.tsv"
+    fi
+
+    # This is the ena synonyms file for the most recent version of GRCh37
+    # ftp://ftp.ensembl.org/pub/grch37/release-85/tsv/homo_sapiens/Homo_sapiens.GRCh37.85.ena.tsv.gz
+    if [ ! -f "${project_dir}data/processed_files_for_lookup/xref_37-ena.tsv" ]; then
+        {
+            echo -e "id\tname"
+            awk -v FS="\t" '{printf("%s\t%s\n", $3, $7)}' "${project_dir}data/ensembl_ftp_site/grch37/Homo_sapiens.GRCh37.85.ena.tsv" | awk 'NF==2{print}' | tail -n +2 | sort -u
+        } > "${project_dir}data/processed_files_for_lookup/xref_37-ena.tsv"
+    fi
+
+}
+
+
+# This function crawls through a directory containing GTF files and converts them to nicer TSV files using process_gtf_file()
+process_all_gtf_files() {
+    datadir="/home/weismanal/notebook/2020-06-01/dmi"
+    processed_dir="/home/weismanal/notebook/2020-06-01/dmi/processed"
+    for gtf_file in "$datadir"/*.gtf; do
+        version=$(basename "$gtf_file" | awk '{split($1,arr,"."); split(arr[2],arr2,"GRCh"); print(arr2[2])}')
+        release=$(basename "$gtf_file" | awk '{split($1,arr,"."); print(arr[3])}')
+        processed_file="$processed_dir/main_$version-$release.tsv"
+        process_gtf_file "$gtf_file" > "$processed_file"
+    done
+}
+
+
+# This function simply writes the Python commands to copy-paste into a Jupyter notebook in order to run the files it reads through the add_tsv_file_to_lookup() .py library function
+write_python_lines() {
+    processed_dir="/home/weismanal/notebook/2020-06-01/dmi/processed"
+    for tsv_file in "$processed_dir"/*.tsv; do
+        echo "lookup = tc.add_tsv_file_to_lookup(lookup, '${tsv_file}')"
+    done
+}
 
 
 
@@ -847,131 +975,3 @@ extract_data() {
 #     # }' "$filename"
 
 # }
-
-
-# Process a GTF file using awk for read-in using Python into a Pandas dataframe
-process_gtf_file() {
-    full_path=$1
-    awk '
-        BEGIN {
-            printf("%s\t%s\t%s\t%s\n", "id", "version", "name", "biotype")
-        }
-        $3=="gene" {
-            split($10, id, "\"")
-            split($12, version, "\"")
-            split($14, name, "\"")
-            split($18, biotype, "\"")
-            printf("%s\t%s\t%s\t%s\n", id[2], version[2], name[2], biotype[2])
-        }
-    ' "$full_path"
-}
-
-
-# Create processed TSV files for use by Pandas to generate a lookup table
-make_tsv_files_for_lookup_table() {
-    # Sample call:
-    #   make_tsv_files_for_lookup_table /data/BIDS-HPC/private/projects/dmi/
-
-    # Input (needs trailing forward slash at end of project directory path)
-    project_dir=$1
-
-    # Create the directory to contain the processed files for reading into Pandas, if it doesn't already exist
-    if [ ! -d "${project_dir}data/processed_files_for_lookup" ]; then
-        mkdir "${project_dir}data/processed_files_for_lookup"
-    fi
-
-    #### Process the GTF files if they don't already exist
-
-    # This is the most up-to-date version of the human genome from Ensembl
-    # ftp://ftp.ensembl.org/pub//release-100/gtf/homo_sapiens/Homo_sapiens.GRCh38.100.gtf.gz
-    if [ ! -f "${project_dir}data/processed_files_for_lookup/main_38.tsv" ]; then
-        process_gtf_file "${project_dir}data/ensembl_ftp_site/grch38/Homo_sapiens.GRCh38.100.gtf" > "${project_dir}data/processed_files_for_lookup/main_38.tsv"
-    fi
-
-    # This is the most recent update to the prior version of the human genome from Ensembl
-    # ftp://ftp.ensembl.org/pub//grch37/release-87/gtf/homo_sapiens/Homo_sapiens.GRCh37.87.gtf.gz (the most recent version actually links to release 87)
-    if [ ! -f "${project_dir}data/processed_files_for_lookup/main_37.tsv" ]; then
-        process_gtf_file "${project_dir}data/ensembl_ftp_site/grch37/Homo_sapiens.GRCh37.87.gtf" > "${project_dir}data/processed_files_for_lookup/main_37.tsv"
-    fi
-
-    # This is the genome release (GRCh38.p2) corresponding to Gencode release #22 (https://www.gencodegenes.org/human/release_22.html), which is what the GDC Data Portal uses as its data set, e.g. https://gdc.cancer.gov/about-data/data-harmonization-and-generation/gdc-reference-files
-    # ftp://ftp.ensembl.org/pub//release-80/gtf/homo_sapiens/Homo_sapiens.GRCh38.80.gtf.gz
-    if [ ! -f "${project_dir}data/processed_files_for_lookup/main_38-80.tsv" ]; then
-        process_gtf_file "${project_dir}data/ensembl_ftp_site/grch38/release-80/Homo_sapiens.GRCh38.80.gtf" > "${project_dir}data/processed_files_for_lookup/main_38-80.tsv"
-    fi
-
-    # This is the ena synonyms file for the most recent version
-    # ftp://ftp.ensembl.org/pub/release-100/tsv/homo_sapiens/Homo_sapiens.GRCh38.100.ena.tsv.gz
-    if [ ! -f "${project_dir}data/processed_files_for_lookup/xref_38-ena.tsv" ]; then
-        {
-            echo -e "id\tname"
-            awk -v FS="\t" '{printf("%s\t%s\n", $3, $7)}' "${project_dir}data/ensembl_ftp_site/grch38/Homo_sapiens.GRCh38.100.ena.tsv" | awk 'NF==2{print}' | tail -n +2 | sort -u
-        } > "${project_dir}data/processed_files_for_lookup/xref_38-ena.tsv"
-    fi
-
-    # This is the entrez synonyms file for the most recent version
-    # ftp://ftp.ensembl.org/pub/release-100/tsv/homo_sapiens/Homo_sapiens.GRCh38.100.entrez.tsv.gz
-    if [ ! -f "${project_dir}data/processed_files_for_lookup/xref_38-entrez.tsv" ]; then
-        {
-            echo -e "id\tname"
-            awk -v FS="\t" '{printf("%s\t%s\n", $1, $4)}' "${project_dir}data/ensembl_ftp_site/grch38/Homo_sapiens.GRCh38.100.entrez.tsv" | tail -n +2 | sort -u
-        } > "${project_dir}data/processed_files_for_lookup/xref_38-entrez.tsv"
-    fi
-
-    # This is the refseq synonyms file for the most recent version
-    # ftp://ftp.ensembl.org/pub/release-100/tsv/homo_sapiens/Homo_sapiens.GRCh38.100.refseq.tsv.gz
-    if [ ! -f "${project_dir}data/processed_files_for_lookup/xref_38-refseq.tsv" ]; then
-        {
-            echo -e "id\tname"
-            awk -v FS="\t" '{printf("%s\t%s\n", $1, $4)}' "${project_dir}data/ensembl_ftp_site/grch38/Homo_sapiens.GRCh38.100.refseq.tsv" | tail -n +2 | sort -u
-        } > "${project_dir}data/processed_files_for_lookup/xref_38-refseq.tsv"
-    fi
-
-    # This is the uniprot synonyms file for the most recent version
-    # ftp://ftp.ensembl.org/pub/release-100/tsv/homo_sapiens/Homo_sapiens.GRCh38.100.uniprot.tsv.gz
-    if [ ! -f "${project_dir}data/processed_files_for_lookup/xref_38-uniprot.tsv" ]; then
-        {
-            echo -e "id\tname"
-            awk -v FS="\t" '{printf("%s\t%s\n", $1, $4)}' "${project_dir}data/ensembl_ftp_site/grch38/Homo_sapiens.GRCh38.100.uniprot.tsv" | tail -n +2 | sort -u
-        } > "${project_dir}data/processed_files_for_lookup/xref_38-uniprot.tsv"
-    fi
-
-    # This is the uniprot synonyms file for the most recent version of GRCh37
-    # ftp://ftp.ensembl.org/pub/grch37/release-85/tsv/homo_sapiens/Homo_sapiens.GRCh37.85.uniprot.tsv.gz
-    if [ ! -f "${project_dir}data/processed_files_for_lookup/xref_37-uniprot.tsv" ]; then
-        {
-            echo -e "id\tname"
-            awk -v FS="\t" '{printf("%s\t%s\n", $1, $4)}' "${project_dir}data/ensembl_ftp_site/grch37/Homo_sapiens.GRCh37.85.uniprot.tsv" | tail -n +2 | sort -u
-        } > "${project_dir}data/processed_files_for_lookup/xref_37-uniprot.tsv"
-    fi
-
-    # This is the ena synonyms file for the most recent version of GRCh37
-    # ftp://ftp.ensembl.org/pub/grch37/release-85/tsv/homo_sapiens/Homo_sapiens.GRCh37.85.ena.tsv.gz
-    if [ ! -f "${project_dir}data/processed_files_for_lookup/xref_37-ena.tsv" ]; then
-        {
-            echo -e "id\tname"
-            awk -v FS="\t" '{printf("%s\t%s\n", $3, $7)}' "${project_dir}data/ensembl_ftp_site/grch37/Homo_sapiens.GRCh37.85.ena.tsv" | awk 'NF==2{print}' | tail -n +2 | sort -u
-        } > "${project_dir}data/processed_files_for_lookup/xref_37-ena.tsv"
-    fi
-
-}
-
-
-process_all_gtf_files() {
-    datadir="/home/weismanal/notebook/2020-06-01/dmi"
-    processed_dir="/home/weismanal/notebook/2020-06-01/dmi/processed"
-    for gtf_file in "$datadir"/*.gtf; do
-        version=$(basename "$gtf_file" | awk '{split($1,arr,"."); split(arr[2],arr2,"GRCh"); print(arr2[2])}')
-        release=$(basename "$gtf_file" | awk '{split($1,arr,"."); print(arr[3])}')
-        processed_file="$processed_dir/main_$version-$release.tsv"
-        process_gtf_file "$gtf_file" > "$processed_file"
-    done
-}
-
-
-write_python_lines() {
-    processed_dir="/home/weismanal/notebook/2020-06-01/dmi/processed"
-    for tsv_file in "$processed_dir"/*.tsv; do
-        echo "lookup = tc.add_tsv_file_to_lookup(lookup, '${tsv_file}')"
-    done
-}
