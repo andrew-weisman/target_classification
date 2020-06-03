@@ -203,11 +203,8 @@ def get_lookup_list(endpoint, names_file, max_list_len=None, max_iter=-1):
 def get_initial_lookup_lists(project_dir):
 
     # Import relevant modules
-    import os, sys
-    gmb_dir = '/data/BIDS-HPC/private/projects/gmb/checkout'
-    if gmb_dir not in sys.path:
-        sys.path.append(gmb_dir)
-    import time_cell_interaction_lib as tci # we need this to get the pickle functions
+    import os
+    tci = get_tci_library()
 
     # If the file containing the initial lookup lists does not already exist...
     if not os.path.exists(os.path.join(project_dir,'data','initial_lookup_lists.pkl')):
@@ -235,11 +232,8 @@ def get_initial_lookup_lists(project_dir):
 def get_missing_lookups(pickle_dir, pickle_file, to_xref_single_list, max_num_names=-1):
 
     # Import relevant modules
-    import os, sys
-    gmb_dir = '/data/BIDS-HPC/private/projects/gmb/checkout'
-    if gmb_dir not in sys.path:
-        sys.path.append(gmb_dir)
-    import time_cell_interaction_lib as tci # we need this to get the pickle functions
+    import os
+    tci = get_tci_library()
 
     # If the file containing the missing lookup list does not already exist...
     if not os.path.exists(os.path.join(pickle_dir, pickle_file)):
@@ -487,3 +481,74 @@ def add_tsv_file_to_lookup(lookup, tsv_file):
         return(pd.concat([lookup, pd.DataFrame(index=id_list, data=data), pd.DataFrame(index=name_list, data=data)]))
     else:
         return(pd.concat([lookup, pd.DataFrame(index=name_list, data=data)]))
+
+
+# Import the time cell interaction library
+def get_tci_library():
+    import sys
+    gmb_dir = '/data/BIDS-HPC/private/projects/gmb/checkout'
+    if gmb_dir not in sys.path:
+        sys.path.append(gmb_dir)
+    import time_cell_interaction_lib as tci # we need this to get the pickle functions e.g.
+    return(tci)
+
+
+# Load the processed datafiles (and their corresponding metadata) into a list of Pandas dataframes and, for those not having unique 'name' columns, make them unique
+# Note that I confirmed that there were no pipe symbols in the fields combined to make unique names
+# This creates the file initial_data_with_unique_gene_names.pkl in the data directory if it doesn't already exist
+def load_datafiles_and_uniqify_gene_names(project_dir):
+
+    # Load relevant libraries
+    import json, os
+    import pandas as pd
+    tci = get_tci_library()
+
+    # Set the pickle information for the present function
+    pickle_dir = os.path.join(project_dir,'data')
+    pickle_file = 'initial_data_with_unique_gene_names.pkl'
+
+    # If the pickle file does not already exist...
+    if not os.path.exists(os.path.join(pickle_dir, pickle_file)):
+
+        # Load the project metadata
+        with open(os.path.join(project_dir,'data','metadata.json')) as f:
+            metadata = json.load(f)
+
+        # Load the datafiles into a list of Pandas dataframes
+        dfs = []
+        for tsv_file in metadata['filedata']['tsv_files']:
+            dfs.append(pd.read_csv(tsv_file, sep='\t'))
+
+        # Determine which datafiles have fully unique "name" columns
+        unique_names = []
+        for df in dfs:
+            unique_names.append(len(set(df['name'])) == len(df))
+        print('Currently there are {} out of {} files with fully unique gene names'.format(sum(unique_names), len(df))) # Note len(df) is wrong!!
+
+        # For those that aren't unique, adjust the name column in order to make it unique
+        for iname, unique_name in enumerate(unique_names): # for each element in the Boolean array telling us whether the datafile has a "name" column with unique contents...
+            if (not unique_name) and ('locus' in dfs[iname].keys()): # if the names are not unique and a "locus" column exists...
+                print('Making the names in file ID {} unique...'.format(iname))
+                df = dfs[iname] # get the dataframe for the current file
+                dupes = df['name'].value_counts()!=1 # in a list of unique names in the "name" column, determine which are duplicates
+                for dup_name in dupes[dupes].index: # for each name that is a duplicate...
+                    df_tmp = df[df['name']==dup_name][['name','locus']] # get just the 'name' and 'locus' columns of the rows corresponding to the duplicate name and assign that to df_tmp
+                    df_tmp['name'] = df_tmp.apply(lambda x: '|'.join(x), axis=1) # overwrite the 'name' column of df_tmp with the join of the 'name' and 'locus' values for each row
+                    df.loc[df_tmp['name'].index,'name'] = df_tmp['name'] # overwrite the corresponding rows and 'name' column of the datafile's dataframe with this joined string for each row
+
+        # Determine which datafiles have fully unique "name" columns; this is a check of what we just did above
+        unique_names = []
+        for df in dfs:
+            unique_names.append(len(set(df['name'])) == len(df))
+        print('Now there are {} out of {} files with fully unique gene names'.format(sum(unique_names), len(df)))
+
+        # Save the data to disk
+        tci.make_pickle([dfs, metadata], pickle_dir, pickle_file)
+
+    else:
+
+        # Load the data from disk if it's already there
+        [dfs, metadata] = tci.load_pickle(pickle_dir, pickle_file)
+
+    # Regardless, return the desired values
+    return(dfs, metadata)
