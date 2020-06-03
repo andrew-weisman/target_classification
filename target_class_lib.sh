@@ -488,7 +488,6 @@ get_uniform_version_of_file() {
         1) # done
             awk '{
                 if (NR==1)
-                    #printf("%s\t%s\t%s\t%s\t%s\n", "id", "tpm", "mean_length", "mean_eff_length", "est_counts")
                     printf("%s\t%s\t%s\t%s\t%s\n", "name", "tpm", "mean_length", "mean_eff_length", "est_counts")
                 else {
                     printf("%s\t%s\t%s\t%s\t%s\n", toupper($1), $5, $2, $3, $4)
@@ -516,7 +515,6 @@ get_uniform_version_of_file() {
         4) # done
             awk '{
                 if (NR==1)
-                    #printf("%s\t%s\t%s\t%s\t%s\n", "id", "rpkm", "name", "raw_counts", "median_length_normalized")
                     printf("%s\t%s\t%s\t%s\t%s\n", "name", "rpkm", "name2", "raw_counts", "median_length_normalized")
                 else {
                     split($1, arr, "|")
