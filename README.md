@@ -73,21 +73,22 @@ This file should be reviewed in order to ensure that each file format does indee
 Using the report contained in `${project_dir}data/uniformity_check.txt`, write a function in `${project_dir}checkout/target_class_lib.sh` called `get_best_gene_name_from_file()` that extracts the best gene name for each line in each type of file, and subsequently generate a master list, `${project_dir}data/all_best_gene_names.txt`, of the "best" gene names contained in every line of every file in the dataset:
 
 ```bash
+# This takes about 3 minutes
 get_best_gene_names_from_all_files "${project_dir}data/" # creates ${project_dir}data/all_best_gene_names.txt
 ```
 
-Get the unique gene names in all these files, simultaneously converting them to uppercase for good measure:
+Get the unique gene names in all these files:
 
 ```bash
 # This takes about 8 minutes
-awk '{print $1}' "${project_dir}data/all_best_gene_names.txt" | sort -u | awk '{print toupper($1)}' | sort -u > "${project_dir}data/unique_best_gene_names_uppercase.txt" # 128,610 of these
+awk '{print $1}' "${project_dir}data/all_best_gene_names.txt" | sort -u | awk '{print $1}' | sort -u > "${project_dir}data/unique_best_gene_names.txt" # 128,612 of these
 ```
 
 Split this file into Ensembl IDs and other gene names:
 
 ```bash
-grep -E "^ENSG[0-9]{11}$" "${project_dir}data/unique_best_gene_names_uppercase.txt" > "${project_dir}data/unique_ensembl_ids.txt" # 73,615 of these
-grep -E -v "^ENSG[0-9]{11}$" "${project_dir}data/unique_best_gene_names_uppercase.txt" > "${project_dir}data/unique_other_names.txt" # 54,995 of these
+grep -E "^ENSG[0-9]{11}$" "${project_dir}data/unique_best_gene_names.txt" > "${project_dir}data/unique_ensembl_ids.txt" # 73,615 of these
+grep -E -v "^ENSG[0-9]{11}$" "${project_dir}data/unique_best_gene_names.txt" > "${project_dir}data/unique_other_names.txt" # 54,997 of these
 ```
 
 Create a gene lookup table generation using HGNC's Biomart:

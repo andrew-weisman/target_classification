@@ -369,21 +369,21 @@ get_best_gene_name_from_file() {
         1)
             awk -v format_num="$format_num" -v filename="$filename" '{
                 if (NR!=1) {
-                    printf("%s\t%s\t%s\n", toupper($1), format_num, filename)
+                    printf("%s\t%s\t%s\n", $1, format_num, filename)
                 }
             }' "$filename"
             ;;
         2)
             awk -v format_num="$format_num" -v filename="$filename" '{
                 if (NR!=1) {
-                    printf("%s\t%s\t%s\n", toupper($1), format_num, filename)
+                    printf("%s\t%s\t%s\n", $1, format_num, filename)
                 }
             }' "$filename"
             ;;
         3)
             awk -v format_num="$format_num" -v filename="$filename" '{
                 if (NR!=1) {
-                    printf("%s\t%s\t%s\n", toupper($1), format_num, filename)
+                    printf("%s\t%s\t%s\n", $1, format_num, filename)
                 }
             }' "$filename"
             ;;
@@ -391,14 +391,14 @@ get_best_gene_name_from_file() {
             awk -v format_num="$format_num" -v filename="$filename" '{
                 if (NR!=1) {
                     split($1, arr, "|")
-                    printf("%s\t%s\t%s\n", toupper(arr[2]), format_num, filename)
+                    printf("%s\t%s\t%s\n", arr[2], format_num, filename)
                 }
             }' "$filename"
             ;;
         5)
             awk -v format_num="$format_num" -v filename="$filename" '{
                 if (NR!=1) {
-                    printf("%s\t%s\t%s\n", toupper($1), format_num, filename)
+                    printf("%s\t%s\t%s\n", $1, format_num, filename)
                 }
             }' "$filename"
             ;;
@@ -406,21 +406,21 @@ get_best_gene_name_from_file() {
             awk -v format_num="$format_num" -v filename="$filename" '{
                 if (NR!=1) {
                     split($1, arr, ".")
-                    printf("%s\t%s\t%s\n", toupper(arr[1]), format_num, filename)
+                    printf("%s\t%s\t%s\n", arr[1], format_num, filename)
                 }
             }' "$filename"
             ;;
         7)
             awk -v format_num="$format_num" -v filename="$filename" '{
                 if (NR!=1) {
-                    printf("%s\t%s\t%s\n", toupper($1), format_num, filename)
+                    printf("%s\t%s\t%s\n", $1, format_num, filename)
                 }
             }' "$filename"
             ;;
         8)
             awk -v format_num="$format_num" -v filename="$filename" '{
                 if (NR!=1) {
-                    printf("%s\t%s\t%s\n", toupper($1), format_num, filename)
+                    printf("%s\t%s\t%s\n", $1, format_num, filename)
                 }
             }' "$filename"
             ;;
@@ -490,7 +490,7 @@ get_uniform_version_of_file() {
                 if (NR==1)
                     printf("%s\t%s\t%s\t%s\t%s\n", "name", "tpm", "mean_length", "mean_eff_length", "est_counts")
                 else {
-                    printf("%s\t%s\t%s\t%s\t%s\n", toupper($1), $5, $2, $3, $4)
+                    printf("%s\t%s\t%s\t%s\t%s\n", $1, $5, $2, $3, $4)
                 }
             }' "$filename"
             ;;
@@ -499,7 +499,7 @@ get_uniform_version_of_file() {
                 if (NR==1)
                     printf("%s\t%s\t%s\n", "name", "fpkm", "fpkm_normalized")
                 else {
-                    printf("%s\t%s\t%s\n", toupper($1), $2, $3)
+                    printf("%s\t%s\t%s\n", $1, $2, $3)
                 }
             }' "$filename"
             ;;
@@ -508,7 +508,7 @@ get_uniform_version_of_file() {
                 if (NR==1)
                     printf("%s\t%s\t%s\n", "name", "rpkm", "raw_count")
                 else {
-                    printf("%s\t%s\t%s\n", toupper($1), $3, $2)
+                    printf("%s\t%s\t%s\n", $1, $3, $2)
                 }
             }' "$filename"
             ;;
@@ -518,7 +518,7 @@ get_uniform_version_of_file() {
                     printf("%s\t%s\t%s\t%s\t%s\n", "name", "rpkm", "name2", "raw_counts", "median_length_normalized")
                 else {
                     split($1, arr, "|")
-                    printf("%s\t%s\t%s\t%s\t%s\n", toupper(arr[2]), $4, toupper(arr[1]), $2, $3)
+                    printf("%s\t%s\t%s\t%s\t%s\n", arr[2], $4, arr[1], $2, $3)
                 }
             }' "$filename"
             ;;
@@ -527,7 +527,7 @@ get_uniform_version_of_file() {
                 if (NR==1)
                     printf("%s\t%s\t%s\t%s\n", "name", "rpkm", "raw_counts", "median_length_normalized")
                 else {
-                    printf("%s\t%s\t%s\t%s\n", toupper($1), $4, $2, $3)
+                    printf("%s\t%s\t%s\t%s\n", $1, $4, $2, $3)
                 }
             }' "$filename"
             ;;
@@ -537,7 +537,7 @@ get_uniform_version_of_file() {
                     printf("%s\t%s\t%s\t%s\t%s\n", "name", "tpm", "length", "effective_length", "num_reads")
                 else {
                     split($1, arr, ".")
-                    printf("%s\t%s\t%s\t%s\t%s\n", toupper(arr[1]), $4, $2, $3, $5)
+                    printf("%s\t%s\t%s\t%s\t%s\n", arr[1], $4, $2, $3, $5)
                 }
             }' "$filename"
             ;;
@@ -546,7 +546,7 @@ get_uniform_version_of_file() {
                 if (NR==1)
                     printf("%s\t%s\n", "name", "UNKNOWN")
                 else {
-                    printf("%s\t%s\n", toupper($1), $2)
+                    printf("%s\t%s\n", $1, $2)
                 }
             }' "$filename"
             ;;
@@ -555,7 +555,7 @@ get_uniform_version_of_file() {
                 if (NR==1)
                     printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "name", "fpkm", "name2", "name3", "class_code", "nearest_ref_id", "tss_id", "locus", "length", "coverage", "fpkm_conf_lo", "fpkm_conf_hi", "fpkm_status")
                 else {
-                    printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", toupper($1), $10, toupper($4), toupper($5), $2, $3, $6, $7, $8, $9, $11, $12, $13)
+                    printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1, $10, $4, $5, $2, $3, $6, $7, $8, $9, $11, $12, $13)
                 }
             }' "$filename"
             ;;

@@ -199,7 +199,7 @@ def get_lookup_list(endpoint, names_file, max_list_len=None, max_iter=-1):
 
 
 # Generate or read in the initial lookup lists that can be calculated by querying the Ensembl REST API
-# As long as the README.md steps are followed, everything should be uppercase
+# As long as the README.md steps are followed, everything should NOT necessarily be uppercase
 def get_initial_lookup_lists(project_dir):
 
     # Import relevant modules
@@ -317,7 +317,7 @@ def get_missing_lookups_in_chunks(symbol_lookup_list, project_dir, chunk_size=10
 # From the two initial lookup lists and the set of chunks of "missing" lookups, create the full lookup table as a Pandas dataframe
 # This contains a row corresponding to every unique name present in the data
 # All the values are populated using the three endpoints of the REST API
-# Everything should be uppercase
+# Everything should NOT necessarily be uppercase
 def get_data_lookup_table(id_lookup_list, symbol_lookup_list, missing_lookup_chunks):
 
     # Import relevant modules
@@ -362,7 +362,7 @@ def get_data_lookup_table(id_lookup_list, symbol_lookup_list, missing_lookup_chu
 
 # Create a lookup table using the output from the Biomart website
 # This contains only rows from the HGNC table in which Ensembl IDs have been assigned; nothing pertains to the datafiles themselves
-# Everything is uppercase
+# Everything is NOT necessarily uppercase
 def get_hgnc_lookup_table(project_dir):
 
     # Import relevant modules
@@ -372,12 +372,9 @@ def get_hgnc_lookup_table(project_dir):
     # Read the result.txt file created by the Biomart website
     df = pd.read_csv(os.path.join(project_dir,'data','gene_lookup_table.txt'), sep='\t', names=['hgnc','symbol','id'], header=0)
 
-    # Delete rows without an Ensembl ID and make the contents of the symbol and id columns uppercase
-    df = df.dropna(axis='index') # this should result in 38,956 non-header rows --> it does
-    df['symbol'] = df['symbol'].apply(lambda x: x.upper())
-    df['id'] = df['id'].apply(lambda x: x.upper())
 
-    # Set the index to be the symbol column, delete that column and the HGNC ID column, and rename the index
+    # Delete rows without an Ensembl ID, set the index to be the symbol column, delete that column and the HGNC ID column, and rename the index
+    df = df.dropna(axis='index') # this should result in 38,956???? non-header rows --> it does
     df = df.set_index('symbol')
     df = df.drop(columns='hgnc')
     df = df.rename_axis(index='name')
@@ -391,11 +388,12 @@ def get_hgnc_lookup_table(project_dir):
 
 
 # Test that string index and column values are all uppercase
-def test_caps_equality(df):
-    for icol, series in enumerate([df.index.to_series()] + [df.iloc[:,icol] for icol in range(df.shape[1])]):
-        series2 = series[series.notnull()]
-        series3 = series2.apply(lambda x: x.upper())
-        print('Uppercase equality of column {}: {}'.format(icol, (series2==series3).sum(axis=0)==len(series2)))
+# I actually should never use this as gene names are not case insensitive (https://www.biostars.org/p/99083/)
+# def test_caps_equality(df):
+#     for icol, series in enumerate([df.index.to_series()] + [df.iloc[:,icol] for icol in range(df.shape[1])]):
+#         series2 = series[series.notnull()]
+#         series3 = series2.apply(lambda x: x.upper())
+#         print('Uppercase equality of column {}: {}'.format(icol, (series2==series3).sum(axis=0)==len(series2)))
 
 
 # Incorporate some additional synonyms into the data lookup table using the HGNC database
@@ -474,9 +472,9 @@ def add_tsv_file_to_lookup(lookup, tsv_file):
     # Read in the TSV file into a Pandas dataframe
     df = pd.read_csv(tsv_file, sep='\t')
 
-    # Capitalize the id and name columns and convert them to lists
-    id_list = df['id'].apply(lambda x: x.upper()).to_list()
-    name_list = df['name'].apply(lambda x: x.upper()).to_list()
+    # Convert the id and name columns to lists
+    id_list = df['id'].to_list()
+    name_list = df['name'].to_list()
 
     # Create the data dictionary to add twice (or just once, with the name list as the index), once with the id list as the index and then with the name list as the index
     if 'version' in df.keys(): # if a "main" (not "xref") TSV file
