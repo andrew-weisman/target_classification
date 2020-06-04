@@ -533,7 +533,8 @@ def load_datafiles_and_uniqify_gene_names(project_dir):
                 dupes = df['name'].value_counts()!=1 # in a list of unique names in the "name" column, determine which are duplicates
                 for dup_name in dupes[dupes].index: # for each name that is a duplicate...
                     df_tmp = df[df['name']==dup_name][['name','locus']] # get just the 'name' and 'locus' columns of the rows corresponding to the duplicate name and assign that to df_tmp
-                    df_tmp['name'] = df_tmp.apply(lambda x: '|'.join(x), axis=1) # overwrite the 'name' column of df_tmp with the join of the 'name' and 'locus' values for each row
+                    #df_tmp['name'] = df_tmp.apply(lambda x: '|'.join(x), axis=1) # overwrite the 'name' column of df_tmp with the join of the 'name' and 'locus' values for each row
+                    df_tmp['name'] = df_tmp.apply(lambda x: '|'.join(x).replace('|chr','|'), axis=1) # overwrite the 'name' column of df_tmp with the join of the 'name' and 'locus' values for each row; also remove the "chr" from some of the loci since it's not always there and this way we can get at least some genes to match
                     df.loc[df_tmp['name'].index,'name'] = df_tmp['name'] # overwrite the corresponding rows and 'name' column of the datafile's dataframe with this joined string for each row
 
         # Determine which datafiles have fully unique "name" columns; this is a check of what we just did above
@@ -552,3 +553,29 @@ def load_datafiles_and_uniqify_gene_names(project_dir):
 
     # Regardless, return the desired values
     return(dfs, metadata)
+
+
+# Join all the individual Pandas dataframes into a single unified dataframe, and also create a corresponding dataframe containing the file metadata
+# I can probably eventually combine this function with the one above and probably not even keep the intermediate dataframes
+def get_unified_dataframe(dfs, metadata):
+
+    # Import relevant library
+    import pandas as pd
+
+    # The used intensity names in the datafiles (see e.g. get_uniform_version_of_file() in the .sh library)
+    intensity_names = {'tpm','fpkm','rpkm','UNKNOWN'}
+
+    # Create a list of intensities for each sample/datafile, dropping all other columns
+    mylist = [ df.set_index('name', drop=False).drop(columns=list(set(df.columns)-intensity_names)) for df in dfs ] # for each dataframe, set the index to the 'name' column and then drop all columns except for the intensity, and create a list of these
+
+    # Join all the intensities together on the gene names into a single Pandas dataframe; transpose the dataframe as well
+    main = pd.concat(mylist, axis='columns', join='outer', ignore_index=False, sort=False).transpose() # combine all the dataframes into a single "main" dataframe and transpose it, putting the samples in rows and the features in columns as is typical... this seems to work as expected
+
+    # Create a separate dataframe (rather than dictionary) for the file data
+    filedata = pd.DataFrame({'filenames': metadata['filedata']['filenames'], 'weblinks': metadata['filedata']['weblinks'], 'normalization': main.index, 'idatafiles': metadata['filedata']['idatafiles'], 'tsv_files': metadata['filedata']['tsv_files'], 'format_nums': metadata['filedata']['format_nums']}) # create another dataframe containing just the file data
+
+    # Drop the index labels, currently intensities, and set them to the identifiers corresponding to those in the new filedata dataframe
+    main = main.reset_index(drop=True) # we confirmed that the index is the same as the intensity column in the filedata dataframe ((main.index == filedata['normalization']).all()), so now we renumber the main index since we confirmed that it cross-matches with the entries in the filedata dataframe
+
+    # Return what we've created
+    return(main, filedata)
