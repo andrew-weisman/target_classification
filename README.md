@@ -15,4 +15,8 @@ Note: The effort using the data directly from the [TARGET data website](https://
 
 ## Workflow
 
+Download the manifest for [all the gene expression quantification files in the TARGET program](https://portal.gdc.cancer.gov/repository?facetTab=files&files_size=100&files_sort=%5B%7B%22field%22%3A%22file_name%22%2C%22order%22%3A%22asc%22%7D%5D&filters=%7B%22op%22%3A%22and%22%2C%22content%22%3A%5B%7B%22op%22%3A%22in%22%2C%22content%22%3A%7B%22field%22%3A%22cases.project.program.name%22%2C%22value%22%3A%5B%22TARGET%22%5D%7D%7D%2C%7B%22op%22%3A%22in%22%2C%22content%22%3A%7B%22field%22%3A%22files.data_type%22%2C%22value%22%3A%5B%22Gene%20Expression%20Quantification%22%5D%7D%7D%5D%7D&searchTableTab=files) (click on the blue "Manifest" button):
+
+![all_gene_expression_files_in_target.png](images/all_gene_expression_files_in_target.png)
+
 asdf
