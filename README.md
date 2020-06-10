@@ -109,12 +109,13 @@ Extract the datafiles into consistently-formatted TSV files to be subsequently r
 extract_data "https://target-data.nci.nih.gov/" "${project_dir}data/" |& tee "${working_dir}extract_data_out_and_err.txt"
 ```
 
+Continue on with the Jupyter notebook `main.ipynb`.
+
 ## Next up
 
-* Perhaps read the TSV files into a Pandas dataframe using the `load_tsv_files()` function in the `target_class_lib.py` Python library... probably read them all into their own Pandas dataframes first
-* Don’t forget to address names with slashes in them, see e.g. the comment in target_class_lib.py; basically, we can just search the output for WARNING perhaps
+* See work log (6/9/20), but overall I am putting this method aside for the time being and going to try the Data Portal approach, coming back to this approach when ready.  I left off with the current approach trying to put together the overall dataframe using the Jupyter notebook, intelligently merging the gene IDs and using a common normalization for the intensities (didn't finish either of these tasks yet, not even starting the latter, which I can pick up with using the Biostar forum or handbook e.g.), after which I'd need to identify the labels for all the samples
+* Don’t forget to address (in the documentation only I believe) names with slashes in them, see e.g. the comment in target_class_lib.py; basically, we can just search the output for WARNING perhaps
 * Look for duplicate data and probably delete the ones that are subsets of the other, e.g.
-* Use other names to help identify other synonyms... go through get_uniform_version_of_file() function and search for "name"
 * At the end of gene name resolution, confirm all IDs are in the current Ensembl version
 * Explore the data we're given, e.g., in format #8, the status is LOW DATA, should we include these?
 * Ask Patee about being able to trust that all datafiles in Public/ are tumor data of the type specified simply by the directory name
