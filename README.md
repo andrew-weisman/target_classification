@@ -1,6 +1,8 @@
 # TARGET classification (using the GDC Data Portal)
 
-## Directory setup
+## Workflow
+
+Set up the directory structure:
 
 ```bash
 project_dir="/data/BIDS-HPC/private/projects/dmi2"
@@ -13,10 +15,40 @@ mkdir "$project_dir/data"
 
 Note: The effort using the data directly from the [TARGET data website](https://target-data.nci.nih.gov) (as opposed to the GDC Data Portal) is in the `target_data_website` branch of this repository.
 
-## Workflow
-
 Download the manifest for [all the gene expression quantification files in the TARGET program](https://portal.gdc.cancer.gov/repository?facetTab=files&files_size=100&files_sort=%5B%7B%22field%22%3A%22file_name%22%2C%22order%22%3A%22asc%22%7D%5D&filters=%7B%22op%22%3A%22and%22%2C%22content%22%3A%5B%7B%22op%22%3A%22in%22%2C%22content%22%3A%7B%22field%22%3A%22cases.project.program.name%22%2C%22value%22%3A%5B%22TARGET%22%5D%7D%7D%2C%7B%22op%22%3A%22in%22%2C%22content%22%3A%7B%22field%22%3A%22files.data_type%22%2C%22value%22%3A%5B%22Gene%20Expression%20Quantification%22%5D%7D%7D%5D%7D&searchTableTab=files) (click on the blue "Manifest" button):
 
 ![all_gene_expression_files_in_target.png](images/all_gene_expression_files_in_target.png)
 
-asdf
+Place the downloaded manifest file as `$project_dir/checkout/manifests/gdc_manifest.2020-06-10-all_gene_expression_files_in_target.txt`.
+
+Download the expression files from the manifest on Helix:
+
+```bash
+module load gdc-client
+mkdir "$project_dir/data/all_gene_expression_files_in_target"
+cd !!:1
+gdc-client download -m "$project_dir/checkout/manifests/gdc_manifest.2020-06-10-all_gene_expression_files_in_target.txt"
+```
+
+Extract the resulting compressed files and link to them from a single folder `$project_dir/data/all_gene_expression_files_in_target/links`:
+
+```bash
+mkdir links
+cd !!:1
+for file in $(find ../ -iname "*.gz"); do gunzip "$file"; done
+for file in $(find ../ -type f | grep -v "/logs/\|/annotations.txt"); do ln -s $file; done
+ln -s "$project_dir/checkout/manifests/gdc_manifest.2020-06-10-all_gene_expression_files_in_target.txt" MANIFEST.txt
+```
+
+Note that
+
+```bash
+for file in $(ls | grep -v MANIFEST.txt); do echo $file | awk -v FS="." '{print $1}'; done | sort -u | wc -l
+```
+
+shows that, ostensibly, there are 2,481 unique expression files (independent of normalization).
+
+## Next up
+
+* Use `main.ipynb` and the GDC GitHub website, e.g. [here](https://github.com/NCI-GDC/htseq-tool/blob/master/htseq_tools/tools/fpkm.py), to calculate FPKM from counts and FPKM-UQ from FPKM and then hopefully calculate FPKM-UQ from STAR so that we can utilize all those counts as well
+* Check that the STAR expression files refer to different samples, or if they refer to the same ones, then I at least have a nice way to compare methods
