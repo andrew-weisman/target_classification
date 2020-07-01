@@ -99,6 +99,7 @@ def get_tci_library():
 
 # Get a list of series containing the actual counts of the samples
 def get_counts(links_dir):
+    # Sample call: srs_counts = tc.get_counts('/data/BIDS-HPC/private/projects/dmi2/data/all_gene_expression_files_in_target/links')
 
     # Import relevant libraries
     import pandas as pd
@@ -201,3 +202,127 @@ def run_checks(df_gencode_genes, calculated_counts, fpkm, fpkm_uq):
     # Print how well I reproduced the normalized values that I downloaded from the GDC data portal
     print('Maximum percent error in FPKM: {}'.format((fpkm-df_samples[1]).abs().max() / df_samples[1].mean() * 100))
     print('Maximum percent error in FPKM-UQ: {}'.format((fpkm_uq-df_samples[2]).abs().max() / df_samples[2].mean() * 100))
+
+
+# Get a list of text files available for each sample in the links_dir
+def get_files_per_sample(links_dir):
+    # Sample call: files_per_sample = tc.get_files_per_sample('/data/BIDS-HPC/private/projects/dmi2/data/all_gene_expression_files_in_target/links')
+
+    # Import relevant libraries
+    import glob, os
+
+    # Get a list of all files (with pathnames removed) in links_dir, except for the manifest file
+    txt_files = set([ x.split('/')[-1] for x in glob.glob(os.path.join(links_dir,'*')) ]) - {'MANIFEST.txt'}
+
+    # Get the corresponding sorted set of basenames (ostensibly, the unique sample names) from the file list
+    basenames = sorted(set([ x.split('.')[0] for x in txt_files ]))
+
+    # For each sample name, create a list of files having that sample name in the filename
+    files_per_sample = []
+    for basename in basenames:
+        files_per_sample.append([ x for x in txt_files if basename in x ])
+
+    # Return a list of text files available for each sample in the links_dir
+    return(files_per_sample)
+
+
+# Read in all the counts files and calculate the FPKM and FPKM-UQ values from them, checking the FPKM/FPKM-UQ values with known quantities if they're available
+def get_intensities(files_per_sample, links_dir, df_gencode_genes, project_dir, nsamples_to_process=-1):
+
+    # Import relevant libraries
+    import pandas as pd
+    import os
+    tci = get_tci_library()
+
+    # Constants (suffixes of the different file types in the links directory)
+    # ['htseq.counts', 'htseq_counts.txt'] # these are the non-specified suffixes below
+    star_counts_suffix = 'rna_seq.star_gene_counts.tsv'
+    fpkm_suffix = 'FPKM.txt'
+    fpkm_uq_suffix = 'FPKM-UQ.txt'
+
+    # If the file containing the lists of series does not already exist...
+    if not os.path.exists(os.path.join(project_dir,'data','series_lists.pkl')):
+
+        # For the first namples_to_process samples in files_per_sample...
+        srs_counts = []
+        srs_fpkm = []
+        srs_fpkm_uq = []
+        nsamples = ( len(files_per_sample) if nsamples_to_process==-1 else nsamples_to_process )
+        for isample, files in enumerate(files_per_sample[:nsamples_to_process]):
+
+            # Initialize the descriptions of the sample (filenames namely) that we want to calculate
+            counts_file = None
+            fpkm_file = None
+            fpkm_uq_file = None
+            counts_type = None
+
+            # For each file in the file list for the current sample...
+            for ifile, x in enumerate([ curr_file.split('.')[1:] for curr_file in files ]):
+
+                # Determine the suffix of the file
+                suffix = '.'.join(x)
+
+                # Run logic based on what the suffix of the current file is, calculating the scriptions of the sample (filenames namely) that we want to calculate
+                if suffix == fpkm_suffix:
+                    fpkm_file = files[ifile]
+                elif suffix == fpkm_uq_suffix:
+                    fpkm_uq_file = files[ifile]
+                else:
+                    if suffix == star_counts_suffix:
+                        counts_type = 'STAR'
+                    else:
+                        counts_type = 'HTSeq'
+                    counts_file = files[ifile]
+
+            # Print the determined filenames and count filetype for the current sample
+            # print('----')
+            # print('Counts file ({}): {}'.format(counts_type, counts_file))
+            # print('FPKM file: {}'.format(fpkm_file))
+            # print('FPKM-UQ file: {}'.format(fpkm_uq_file))
+
+            # Get counts dataframe for the current sample
+            if counts_type == 'HTSeq':
+                df_tmp = pd.read_csv(os.path.join(links_dir, counts_file), sep='\t', skipfooter=5, names=['id','intensity'])
+            else:
+                df_tmp = pd.read_csv(os.path.join(links_dir, counts_file), sep='\t', skiprows=5, usecols=[0,1], names=['id','intensity'])
+
+            # Format the counts series and calculate FPKM and FPKM-UQ from it using the aggregate lengths in df_gencode_genes
+            sr_counts = df_tmp.set_index('id').sort_index().iloc[:,0]
+            sr_fpkm, sr_fpkm_uq = calculate_fpkm(df_gencode_genes, sr_counts)
+
+            # Print how well I reproduced the FPKM values that I downloaded from the GDC data portal, if present
+            if fpkm_file is not None:
+                df_fpkm = pd.read_csv(os.path.join(links_dir, fpkm_file), sep='\t', names=['id','intensity'])
+                sr_fpkm_known = df_fpkm.set_index('id').sort_index().iloc[:,0]
+                perc_err = (sr_fpkm-sr_fpkm_known).abs().max() / sr_fpkm_known.mean() * 100
+                #print('Maximum percent error in FPKM: {}'.format(perc_err))
+                if perc_err > 1e-2:
+                    print('ERROR: Maximum percent error ({}) in FPKM is too high!'.format(perc_err))
+                    exit()
+
+            # Print how well I reproduced the FPKM-UQ values that I downloaded from the GDC data portal, if present
+            if fpkm_uq_file is not None:
+                df_fpkm_uq = pd.read_csv(os.path.join(links_dir, fpkm_uq_file), sep='\t', names=['id','intensity'])
+                sr_fpkm_uq_known = df_fpkm_uq.set_index('id').sort_index().iloc[:,0]
+                perc_err = (sr_fpkm_uq-sr_fpkm_uq_known).abs().max() / sr_fpkm_uq_known.mean() * 100
+                #print('Maximum percent error in FPKM-UQ: {}'.format(perc_err))
+                if perc_err > 1e-5:
+                    print('ERROR: Maximum percent error ({}) in FPKM-UQ is too high!'.format(perc_err))
+                    exit()
+
+            # Append the current calculated series to the lists of series
+            srs_counts.append(sr_counts)
+            srs_fpkm.append(sr_fpkm)
+            srs_fpkm_uq.append(sr_fpkm_uq)
+
+            print('\r', '{:3.1f}% complete...'.format((isample+1)/nsamples*100), end='')
+
+        # Write a pickle file containing the data that take a while to calculate
+        tci.make_pickle([srs_counts, srs_fpkm, srs_fpkm_uq], os.path.join(project_dir,'data'), 'series_lists.pkl')
+
+    # Otherwise, read it in
+    else:
+        [srs_counts, srs_fpkm, srs_fpkm_uq] = tci.load_pickle(os.path.join(project_dir,'data'), 'series_lists.pkl')
+
+    # Return the calculated lists of series
+    return(srs_counts, srs_fpkm, srs_fpkm_uq)
