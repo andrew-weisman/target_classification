@@ -227,7 +227,7 @@ def get_files_per_sample(links_dir):
 
 
 # Read in all the counts files and calculate the FPKM and FPKM-UQ values from them, checking the FPKM/FPKM-UQ values with known quantities if they're available
-def get_intensities(files_per_sample, links_dir, df_gencode_genes, project_dir, nsamples_to_process=-1):
+def get_intensities(files_per_sample, links_dir, df_gencode_genes, project_dir, nsamples=-1):
 
     # Import relevant libraries
     import pandas as pd
@@ -247,8 +247,9 @@ def get_intensities(files_per_sample, links_dir, df_gencode_genes, project_dir, 
         srs_counts = []
         srs_fpkm = []
         srs_fpkm_uq = []
-        nsamples = ( len(files_per_sample) if nsamples_to_process==-1 else nsamples_to_process )
-        for isample, files in enumerate(files_per_sample[:nsamples_to_process]):
+        nsamples = ( len(files_per_sample) if nsamples==-1 else nsamples )
+        #for isample, files in enumerate(files_per_sample[:nsamples_to_process]):
+        for isample, files in enumerate(files_per_sample[:nsamples]):
 
             # Initialize the descriptions of the sample (filenames namely) that we want to calculate
             counts_file = None
