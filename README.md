@@ -21,6 +21,10 @@ Download the manifest for [all the gene expression quantification files in the T
 
 Place the downloaded manifest file as `$project_dir/checkout/manifests/gdc_manifest.2020-06-10-all_gene_expression_files_in_target.txt`.
 
+In addition, click on the blue "Add All Files to Cart" button, go to the cart (top right of page), click on the two blue buttons "Sample Sheet" and "Metadata", and save the resulting two files to `$project_dir/data`. The two files will be named, e.g., `gdc_sample_sheet.2020-07-02.tsv` and `metadata.cart.2020-07-02.json`.
+
+Note that these 5,149 files correspond to 1,192 cases (people [for sure that's what it means]).
+
 Download the expression files from the manifest on Helix:
 
 ```bash

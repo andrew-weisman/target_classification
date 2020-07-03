@@ -327,3 +327,164 @@ def get_intensities(files_per_sample, links_dir, df_gencode_genes, project_dir, 
 
     # Return the calculated lists of series
     return(srs_counts, srs_fpkm, srs_fpkm_uq)
+
+
+# Obtain a Pandas dataframe from the fields of interest for all samples, essentially containing everything we'll ever need to know about the samples, including the labels themselves
+def get_labels_dataframe(sample_sheet_file, metadata_file):
+
+    # Sample call:
+    #   sample_sheet_file = '/data/BIDS-HPC/private/projects/dmi2/data/gdc_sample_sheet.2020-07-02.tsv'
+    #   metadata_file = '/data/BIDS-HPC/private/projects/dmi2/data/metadata.cart.2020-07-02.json'
+    #   df_samples = tc.get_labels_dataframe(sample_sheet_file, metadata_file)
+
+    # Import relevant libraries
+    import pandas as pd
+    import json
+
+    # Constants
+    htseq_suffixes = ['htseq.counts', 'htseq_counts.txt']
+    labels_df_names = ['sample id', 'file list index', 'counts file name', 'average base quality', 'file id', 'project id', 'case id', 'sample type', 'contamination_error', 'proportion_reads_mapped', 'proportion_reads_duplicated', 'contamination', 'proportion_base_mismatch', 'state', 'platform', 'average_read_length', 'entity_submitter_id']
+    desired_keys = ['average_base_quality', 'contamination_error', 'proportion_reads_mapped', 'proportion_reads_duplicated', 'contamination', 'proportion_base_mismatch', 'state', 'platform', 'average_read_length']
+
+    # Read in the two datafiles
+    df_samples = pd.read_csv(sample_sheet_file, sep='\t')
+    with open(metadata_file) as f:
+        metadata = json.load(f)
+
+    # Get the corresponding filename mapping arrays
+    filename_mapping_samples = df_samples['File Name']
+    filename_mapping_metadata = []
+    for curr_file in metadata:
+        filename_mapping_metadata.append(curr_file['file_name'])
+
+    # Get the full list of unique sample IDs
+    samples = list(set(df_samples['Sample ID']))
+
+    # For each unique sample ID...
+    selected_fields_per_sample = []
+    for sample in samples:
+
+        # Store the dataframe for just the current sample
+        df_sample = df_samples[df_samples['Sample ID']==sample]
+
+        # Check that all relevant columns of the current sample are equal, as they should be since they all correspond to the same sample even though the rows correspond to different datafiles
+        non_unique_values = (len(df_sample['Data Category'].unique())!=1) or (len(df_sample['Data Type'].unique())!=1) or (len(df_sample['Project ID'].unique())!=1) or (len(df_sample['Case ID'].unique())!=1) or (len(df_sample['Sample ID'].unique())!=1) or (len(df_sample['Sample Type'].unique())!=1)
+        if non_unique_values:
+            print('ERROR: All fields for the current sample are not equal over the files')
+            exit()
+
+        # Obtain the HTSeq counts files for the current sample (note: sometimes there are 2 instead of 1)
+        htseq_files = [ (fn if ('.'.join(fn.split('.')[1:-1]) in htseq_suffixes) else None) for fn in df_sample['File Name'] ]
+        counts_file_list = list(set(htseq_files) - {None})
+
+        # If there is just a single HTSeq counts files for the current sample, then we have already identified the HTSeq counts file that we're looking for
+        if len(counts_file_list) == 1:
+            counts_file = counts_file_list[0]
+
+        # If there are more than one HTSeq counts files for the current sample, it doesn't make sense to me to keep multiple analyses of the same sample, so just choose the analysis with the best base quality score (or the first if multiple files have the same best score)
+        else:
+           
+            # Initialize variables in this small loop over possible HTSeq counts files
+            best_score = -1
+            best_counts_file = None
+
+            # For each counts file...
+            for counts_file in counts_file_list:
+
+                # Obtain the corresponding index of the metadata list, using that to extract the average_base_quality field
+                metadata_index = filename_mapping_metadata.index(counts_file)
+                score = metadata[metadata_index]['analysis']['input_files'][0]['average_base_quality']
+
+                # If the current score is better than the current best score, update the variables
+                if score > best_score:
+                    best_counts_file = counts_file
+                    best_score = score
+
+            # Rename the variable holding the HTSeq counts file that we were looking for
+            counts_file = best_counts_file
+
+        # For the best HTSeq counts file for the current sample, obtain the corresponding index of in the sample sheet and in the metadata, and check that they are the same
+        samples_index = filename_mapping_samples[filename_mapping_samples==counts_file].index[0]
+        metadata_index = filename_mapping_metadata.index(counts_file)
+        if samples_index != metadata_index:
+            print('ERROR: The File indexes for the sample sheet and the metadata file are different')
+            exit()
+
+        # Get shortcut variables for the sections of the sample sheet and the metadata that have some values that we want to add to our labels dataframe
+        series = df_samples.loc[samples_index,:]
+        md1 = metadata[metadata_index]['analysis']['input_files'][0]
+
+        # Run a check to ensure at least a None value of all desired keys exists in the md1 dictionary
+        current_keys = md1.keys()
+        for desired_key in desired_keys:
+            if desired_key not in current_keys:
+                md1[desired_key] = None
+
+        # Save the fields of interest to a running list
+        selected_fields_per_sample.append([sample, samples_index, counts_file, md1['average_base_quality'], series['File ID'], series['Project ID'], series['Case ID'], series['Sample Type'], md1['contamination_error'], md1['proportion_reads_mapped'], md1['proportion_reads_duplicated'], md1['contamination'], md1['proportion_base_mismatch'], md1['state'], md1['platform'], md1['average_read_length'], metadata[metadata_index]['associated_entities'][0]['entity_submitter_id']])
+
+    # Define the Pandas dataframe from the fields of interest for all samples
+    df = pd.DataFrame(data=selected_fields_per_sample, columns=labels_df_names)
+    df = df.set_index('sample id')
+
+    # Return this dataframe
+    return(df)
+
+
+# Plot histograms of the numerical columns of the samples/labels before and after cutoffs could theoretically be applied, and print out a summary of what we should probably do
+def demonstrate_removal_of_bad_samples(df_samples, nstd=2):
+
+    # Import relevant library
+    import numpy as np
+
+    # Generate the initial set of histograms on the numerical data in the samples dataframe
+    ax_hist = df_samples.hist(figsize=(12,8))
+
+    # "Constants" based on viewing the first set of histograms above so that we can figure out which ones to use to filter the data
+    columns = ['average base quality', 'proportion_base_mismatch', 'proportion_reads_mapped']
+    higher_is_better = [True, False, True]
+    sp_locs = [(0,0), (1,1), (2,1)]
+
+    # Start off filtering none of the data
+    valid_ind = np.full((len(df_samples),), True)
+
+    # For each plot containing data we'd like to use to filter our samples...
+    for col, hib, sp_loc in zip(columns, higher_is_better, sp_locs):
+
+        # Determine +1 or -1 depending on whether higher is better (if higher is better, use -1)
+        sign = -2*int(hib) + 1
+
+        # Get the data values of the current plot
+        vals = df_samples[col]
+
+        # Calculate the cutoff for the current plot using the inputted number of standard deviations from the mean as the cutoff
+        cutoff = vals.mean() + sign*nstd*vals.std()
+
+        # Determine the current axis in the overall histogram plot
+        ax = ax_hist[sp_loc]
+
+        # Determine the y limits of that plot
+        ylim = ax.get_ylim()
+
+        # Plot the calculated cutoff as a vertical red line
+        ax.plot([cutoff,cutoff], ylim, 'r')
+
+        # Determine a boolean array of where the values fall outside the cutoffs and print how many such bad values there are
+        bad_vals = (sign*vals) > (sign*cutoff)
+        print('There are {} bad values in the "{}" plot'.format(sum(bad_vals), col))
+
+        # Update the boolean filtering array using the current set of bad values
+        valid_ind[bad_vals]=False
+
+    # Store some numbers for easier calculation below: the total number of samples and the aggregate number of bad samples
+    ntot = len(valid_ind)
+    nbad_tot = ntot - sum(valid_ind)
+
+    # Print some output of the analysis and what we'd recommend we do in the future
+    print('Most bad values are overlapping; taken together, there are {} bad values'.format(nbad_tot))
+    print('We should likely use these cutoffs to remove the bad samples; this will only remove {:3.1f}% of the data, leaving {} good samples'.format(nbad_tot/ntot*100, ntot-nbad_tot))
+    print('See for example the two generated images: the first is the original data with the cutoffs plotted in red, and the second is the filtered data with the cutoffs applied')
+    print('For the time being though, we are leaving the data untouched!')
+
+    # Plot the same histograms using the filtered samples to show what would happen if we applied the calculated cutoffs
+    _ = df_samples.iloc[valid_ind,:].hist(figsize=(12,8))
