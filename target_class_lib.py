@@ -205,6 +205,7 @@ def run_checks(df_gencode_genes, calculated_counts, fpkm, fpkm_uq):
 
 
 # Get a list of text files available for each sample in the links_dir
+# This is no longer used
 def get_files_per_sample(links_dir):
     # Sample call: files_per_sample = tc.get_files_per_sample('/data/BIDS-HPC/private/projects/dmi2/data/all_gene_expression_files_in_target/links')
 
@@ -227,7 +228,7 @@ def get_files_per_sample(links_dir):
 
 
 # Read in all the counts files and calculate the FPKM and FPKM-UQ values from them, checking the FPKM/FPKM-UQ values with known quantities if they're available
-def get_intensities(files_per_sample, links_dir, df_gencode_genes, project_dir, nsamples=-1):
+def get_intensities_old(files_per_sample, links_dir, df_gencode_genes, project_dir, nsamples=-1):
 
     # Import relevant libraries
     import pandas as pd
@@ -432,7 +433,7 @@ def get_labels_dataframe(sample_sheet_file, metadata_file):
 
 
 # Plot histograms of the numerical columns of the samples/labels before and after cutoffs could theoretically be applied, and print out a summary of what we should probably do
-def demonstrate_removal_of_bad_samples(df_samples, nstd=2):
+def remove_bad_samples(df_samples, nstd=2):
 
     # Import relevant library
     import numpy as np
@@ -484,7 +485,226 @@ def demonstrate_removal_of_bad_samples(df_samples, nstd=2):
     print('Most bad values are overlapping; taken together, there are {} bad values'.format(nbad_tot))
     print('We should likely use these cutoffs to remove the bad samples; this will only remove {:3.1f}% of the data, leaving {} good samples'.format(nbad_tot/ntot*100, ntot-nbad_tot))
     print('See for example the two generated images: the first is the original data with the cutoffs plotted in red, and the second is the filtered data with the cutoffs applied')
-    print('For the time being though, we are leaving the data untouched!')
+    # print('For the time being though, we are leaving the data untouched!')
 
     # Plot the same histograms using the filtered samples to show what would happen if we applied the calculated cutoffs
     _ = df_samples.iloc[valid_ind,:].hist(figsize=(12,8))
+
+    return(df_samples.iloc[valid_ind,:], valid_ind)
+
+
+# Return the samples dataframe with the samples removed that correspond to multiple cases (i.e., people)
+def drop_multiperson_samples(df_samples):
+
+    # Import relevant libraries
+    import pandas as pd
+    import numpy as np
+
+    # Initialize the arrays of interest
+    indexes_to_drop = [] # to store indexes of samples to drop
+    samples_to_drop = [] # to store the samples themselves (Series) to drop
+    indexes_to_keep = np.full((len(df_samples),), True) # to store the indexes to keep in the full samples array so that I can plug these logical indexes into other arrays
+
+    # For every index in the sample dataframe...
+    for isample, sample_index in enumerate(df_samples.index):
+
+        # Save the current sample (as a Series)
+        sample = df_samples.loc[sample_index]
+
+        # If there are multiple cases (people; and I've confirmed that they can't be the same people, e.g., living white female and dead black male) corresponding to this one sample...
+        if len(sample['case id'].split()) > 1:
+            indexes_to_drop.append(sample_index) # save the sample index
+            samples_to_drop.append(sample) # save the sample series
+            indexes_to_keep[isample] = False
+
+    # Create and print a Pandas dataframe of the samples to drop in order to visualize it nicely
+    print('Dropping the following samples from the samples table:')
+    df_samples_to_drop = pd.DataFrame(data=samples_to_drop).rename_axis(index='sample id')
+    print(df_samples_to_drop)
+
+    # Return the modified samples dataframe
+    return(df_samples.drop(index=indexes_to_drop), indexes_to_keep, df_samples_to_drop)
+
+
+# Perform exploratory data analysis on the sample labels
+def eda_labels(df_samples):
+
+    # Import relevant library
+    import random
+
+    # Add the index "column" as an actual column to the dataframe so we can analyze the index column in the same manner as the other columns
+    df_samples[df_samples.index.name] = df_samples.index
+
+    # Initialize the holder lists of the column types
+    cols_unique = []
+    cols_uniform = []
+    cols_other = []
+
+    # Get the total number of rows in the dataframe
+    nsamples = len(df_samples)
+
+    # Get a random index in the dataframe
+    rand_index = random.randrange(nsamples)
+
+    # Plot histograms of the numeric data
+    _ = df_samples.hist(figsize=(12,8))
+
+    # Determine the non-numeric columns
+    non_numeric_cols = df_samples.select_dtypes(exclude='number').columns
+
+    # Initialize the column name lengths
+    max_col_len = -1
+
+    # For every non-numeric column...
+    for col in non_numeric_cols:
+
+        # Determine the number of unique values in the column
+        nunique = len(df_samples[col].unique())
+
+        # Every row in the column is unique
+        if nunique == nsamples:
+            cols_unique.append([col, df_samples[col][rand_index]])
+
+        # The column is completely uniform
+        elif nunique == 1:
+            cols_uniform.append([col, df_samples[col][0]])
+
+        # The column is neither unique nor uniform
+        else:
+            cols_other.append([col, nunique])
+
+        # Possibly update the maximum column name size (for pretty printing later)
+        if len(col) > max_col_len:
+            max_col_len = len(col)
+
+    # Store the output format string depending on the maximum column name size
+    output_col_str = ' . {:' + str(max_col_len+5) + '}{}'
+
+    # Print the columns in which every row is unique
+    print('Non-numeric columns with all unique values ({} of them), with sample values:\n'.format(nsamples))
+    for col_data in cols_unique:
+        print(output_col_str.format(col_data[0], col_data[1]))
+
+    # Print the columns that are completely uniform
+    print('\nNon-numeric columns with uniform values:\n')
+    for col_data in cols_uniform:
+        print(output_col_str.format(col_data[0], col_data[1]))
+
+    # Print the columns (and supporting information) that are neither unique nor uniform
+    print('\nNon-numeric columns with non-unique and non-uniform values:\n')
+    for col_data in cols_other:
+        print(output_col_str.format(col_data[0], col_data[1]), '\n')
+        print(df_samples[col_data[0]].value_counts(), '\n')
+
+
+# Read in and, if possible, confirm the counts and FPKM normalizations for all the samples in the samples dataframe df_samples
+def get_intensities(df_samples, links_dir, df_gencode_genes, project_dir):
+
+    # Import relevant libraries
+    import os
+    import pandas as pd
+    tci = get_tci_library()
+
+    # If the file containing the lists of series does not already exist...
+    if not os.path.exists(os.path.join(project_dir,'data','series_lists.pkl')):
+
+        # Ensure that all values in the "counts file name" column of df_samples are unique as expected
+        nsamples = len(df_samples)
+        if not len(df_samples['counts file name'].unique()) == nsamples:
+            print('ERROR: "counts file name" column of the samples dataframe does not contain all unique values')
+            exit()
+
+        # Strip the ".gz" off of the filenames in the "counts file name" column of the samples dataframe
+        counts_filenames = [ x.split(sep='.gz')[0] for x in df_samples['counts file name'] ]
+
+        # Obtain a listing of all the files in the links directory
+        files_in_links_dir = os.listdir(links_dir)
+
+        # For every counts filename in the samples dataframe...
+        srs_counts = []
+        srs_fpkm = []
+        srs_fpkm_uq = []
+        for isample, counts_fn in enumerate(counts_filenames):
+
+            # Read in the counts data
+            sr_counts = pd.read_csv(os.path.join(links_dir, counts_fn), sep='\t', skipfooter=5, names=['id','intensity']).set_index('id').sort_index().iloc[:,0] # assume this is of the HTSeq (as opposed to STAR) format
+
+            # Use those counts data to calculate the FPKM and FPKM-UQ values
+            sr_fpkm, sr_fpkm_uq = calculate_fpkm(df_gencode_genes, sr_counts)
+
+            # Get the basename of the current counts file
+            bn = counts_fn.split(sep='.')[0]
+
+            # Determine the files in files_in_links_dir and their indexes matching the current basename
+            bn_matches = []
+            bn_matches_indexes = []
+            for ifile, curr_file in enumerate(files_in_links_dir):
+                if bn in curr_file:
+                    bn_matches.append(curr_file)
+                    bn_matches_indexes.append(ifile)
+
+            # From the matching files, determine their suffixes in lowercase, finding where in them FPKM and FPKM-UQ strings match
+            suffixes_lower = [ x.split(sep=bn+'.')[1].lower() for x in bn_matches ]
+            fpkm_matches = [ 'fpkm.' in x for x in suffixes_lower ]
+            fpkm_uq_matches = [ 'fpkm-uq.' in x for x in suffixes_lower ]
+
+            # Ensure there aren't more than 1 match for either FPKM or FPKM-UQ for the current basename
+            if sum(fpkm_matches)>1 or sum(fpkm_uq_matches)>1:
+                print('ERROR: More than 1 FPKM or FPKM-UQ file matches the basename {}'.format(bn))
+                exit()
+
+            # If an FPKM file corresponding to the current basename is found...
+            if sum(fpkm_matches) == 1:
+
+                # Determine its filename
+                fpkm_fn = files_in_links_dir[bn_matches_indexes[fpkm_matches.index(True)]]
+
+                # Read in its data into a Pandas series
+                sr_fpkm_known = pd.read_csv(os.path.join(links_dir, fpkm_fn), sep='\t', names=['id','intensity']).set_index('id').sort_index().iloc[:,0]
+
+                # Determine how well our calculated values in sr_fpkm match those read in to sr_fpkm_known
+                perc_err = (sr_fpkm-sr_fpkm_known).abs().max() / sr_fpkm_known.mean() * 100
+                if perc_err > 1e-2:
+                    print('ERROR: Maximum percent error ({}) in FPKM is too high!'.format(perc_err))
+                    exit()
+
+            # If an FPKM-UQ file corresponding to the current basename is found...
+            if sum(fpkm_uq_matches) == 1:
+
+                # Determine its filename
+                fpkm_uq_fn = files_in_links_dir[bn_matches_indexes[fpkm_uq_matches.index(True)]]
+
+                # Read in its data into a Pandas series
+                sr_fpkm_uq_known = pd.read_csv(os.path.join(links_dir, fpkm_uq_fn), sep='\t', names=['id','intensity']).set_index('id').sort_index().iloc[:,0]
+
+                # Determine how well our calculated values in sr_fpkm_uq match those read in to sr_fpkm_uq_known
+                perc_err = (sr_fpkm_uq-sr_fpkm_uq_known).abs().max() / sr_fpkm_uq_known.mean() * 100
+                if perc_err > 1e-5:
+                    print('ERROR: Maximum percent error ({}) in FPKM-UQ is too high!'.format(perc_err))
+                    exit()
+
+            # Append the read-in and calculated values to running lists
+            srs_counts.append(sr_counts)
+            srs_fpkm.append(sr_fpkm)
+            srs_fpkm_uq.append(sr_fpkm_uq)
+
+            print('\r', '{:3.1f}% complete...'.format((isample+1)/nsamples*100), end='')
+
+        # Write a pickle file containing the data that take a while to calculate
+        tci.make_pickle([srs_counts, srs_fpkm, srs_fpkm_uq], os.path.join(project_dir,'data'), 'series_lists.pkl')
+
+    # Otherwise, read it in
+    else:
+        [srs_counts, srs_fpkm, srs_fpkm_uq] = tci.load_pickle(os.path.join(project_dir,'data'), 'series_lists.pkl')
+
+    # Return the calculated lists of series
+    return(srs_counts, srs_fpkm, srs_fpkm_uq)
+
+
+# Convert the lists of Pandas series to Pandas dataframes
+def make_intensities_dataframes(srs_list, index):
+    import pandas as pd
+    counts_list = []
+    for srs in srs_list:
+        counts_list.append(pd.DataFrame(srs, index=index))
+    return(counts_list)
