@@ -1,6 +1,6 @@
 # Prepare the annotation dataframe df_gencode_genes, particularly calculating the exon length of each gene (corresponding to its non-overlapping exons) and adding this as a column to the df_gencode_genes dataframe
-# This takes about 10 minutes
-def calculate_exon_lengths(gencode_gtf_file, project_dir):
+# This takes about 10 minutes if the pickle file doesn't already exist
+def calculate_exon_lengths(gencode_gtf_file):
 
     # Import relevant libraries
     import pandas as pd
@@ -11,8 +11,12 @@ def calculate_exon_lengths(gencode_gtf_file, project_dir):
     # Set the number of steps to output so we can evaluate progress
     nsteps = 100
 
+    # Identify the data directory as the directory that the annotation file is in
+    os_sep = os.sep
+    data_dir = os_sep.join(gencode_gtf_file.split(sep=os_sep)[:-1])
+
     # If the file containing the annotation dataframe does not already exist...
-    if not os.path.exists(os.path.join(project_dir,'data','annotation_dataframe.pkl')):
+    if not os.path.exists(os.path.join(data_dir,'annotation_dataframe.pkl')):
 
         # Read in the the GTF file from the Gencode website
         df_gencode = pd.read_csv(gencode_gtf_file, sep='\t', skiprows=5, header=None)
@@ -77,11 +81,11 @@ def calculate_exon_lengths(gencode_gtf_file, project_dir):
         # Add a column of exon gene length to the genes dataframe
         df_gencode_genes['exon_length'] = exon_lengths
 
-        tci.make_pickle(df_gencode_genes, os.path.join(project_dir,'data'), 'annotation_dataframe.pkl')
+        tci.make_pickle(df_gencode_genes, data_dir, 'annotation_dataframe.pkl')
 
     # Otherwise, read it in
     else:
-        df_gencode_genes = tci.load_pickle(os.path.join(project_dir,'data'), 'annotation_dataframe.pkl')
+        df_gencode_genes = tci.load_pickle(data_dir, 'annotation_dataframe.pkl')
 
     # Return the main reference dataframe
     return(df_gencode_genes)
@@ -98,7 +102,7 @@ def get_tci_library():
 
 
 # Get a list of series containing the actual counts of the samples
-def get_counts(links_dir):
+def get_counts_old(links_dir):
     # Sample call: srs_counts = tc.get_counts('/data/BIDS-HPC/private/projects/dmi2/data/all_gene_expression_files_in_target/links')
 
     # Import relevant libraries
@@ -228,7 +232,7 @@ def get_files_per_sample(links_dir):
 
 
 # Read in all the counts files and calculate the FPKM and FPKM-UQ values from them, checking the FPKM/FPKM-UQ values with known quantities if they're available
-def get_intensities_old(files_per_sample, links_dir, df_gencode_genes, project_dir, nsamples=-1):
+def get_intensities_old(files_per_sample, links_dir, df_gencode_genes, data_dir, nsamples=-1):
 
     # Import relevant libraries
     import pandas as pd
@@ -242,7 +246,7 @@ def get_intensities_old(files_per_sample, links_dir, df_gencode_genes, project_d
     fpkm_uq_suffix = 'FPKM-UQ.txt'
 
     # If the file containing the lists of series does not already exist...
-    if not os.path.exists(os.path.join(project_dir,'data','series_lists.pkl')):
+    if not os.path.exists(os.path.join(data_dir,'series_lists.pkl')):
 
         # For the first namples_to_process samples in files_per_sample...
         srs_counts = []
@@ -320,11 +324,11 @@ def get_intensities_old(files_per_sample, links_dir, df_gencode_genes, project_d
             print('\r', '{:3.1f}% complete...'.format((isample+1)/nsamples*100), end='')
 
         # Write a pickle file containing the data that take a while to calculate
-        tci.make_pickle([srs_counts, srs_fpkm, srs_fpkm_uq], os.path.join(project_dir,'data'), 'series_lists.pkl')
+        tci.make_pickle([srs_counts, srs_fpkm, srs_fpkm_uq], data_dir, 'series_lists.pkl')
 
     # Otherwise, read it in
     else:
-        [srs_counts, srs_fpkm, srs_fpkm_uq] = tci.load_pickle(os.path.join(project_dir,'data'), 'series_lists.pkl')
+        [srs_counts, srs_fpkm, srs_fpkm_uq] = tci.load_pickle(data_dir, 'series_lists.pkl')
 
     # Return the calculated lists of series
     return(srs_counts, srs_fpkm, srs_fpkm_uq)
@@ -340,7 +344,7 @@ def get_labels_dataframe(sample_sheet_file, metadata_file):
 
     # Import relevant libraries
     import pandas as pd
-    import json
+    import json, os
 
     # Constants
     htseq_suffixes = ['htseq.counts', 'htseq_counts.txt']
@@ -424,9 +428,9 @@ def get_labels_dataframe(sample_sheet_file, metadata_file):
         # Save the fields of interest to a running list
         selected_fields_per_sample.append([sample, samples_index, counts_file, md1['average_base_quality'], series['File ID'], series['Project ID'], series['Case ID'], series['Sample Type'], md1['contamination_error'], md1['proportion_reads_mapped'], md1['proportion_reads_duplicated'], md1['contamination'], md1['proportion_base_mismatch'], md1['state'], md1['platform'], md1['average_read_length'], metadata[metadata_index]['associated_entities'][0]['entity_submitter_id']])
 
-    # Define the Pandas dataframe from the fields of interest for all samples
+    # Define the Pandas dataframe from the fields of interest for all samples, finishing by sorting by index
     df = pd.DataFrame(data=selected_fields_per_sample, columns=labels_df_names)
-    df = df.set_index('sample id')
+    df = df.set_index('sample id').sort_index()
 
     # Return this dataframe
     return(df)
@@ -597,22 +601,138 @@ def eda_labels(df_samples):
         print(df_samples[col_data[0]].value_counts(), '\n')
 
 
-# Read in and, if possible, confirm the counts and FPKM normalizations for all the samples in the samples dataframe df_samples
-def get_intensities(df_samples, links_dir, df_gencode_genes, project_dir):
+# Read in the counts for all the samples in the samples dataframe df_samples
+# the counts dataframe will be in the same order as df_samples
+def get_counts(df_samples, links_dir):
+
+    # Import relevant libraries
+    import os
+    import pandas as pd
+
+    # Ensure that all values in the "counts file name" column of df_samples are unique as expected
+    nsamples = len(df_samples)
+    if not len(df_samples['counts file name'].unique()) == nsamples:
+        print('ERROR: "counts file name" column of the samples dataframe does not contain all unique values')
+        exit()
+
+    # Strip the ".gz" off of the filenames in the "counts file name" column of the samples dataframe
+    counts_filenames = [ x.split(sep='.gz')[0] for x in df_samples['counts file name'] ]
+
+    # For every counts filename in the samples dataframe...
+    srs_counts = []
+    for isample, counts_fn in enumerate(counts_filenames):
+
+        # Read in the counts data
+        sr_counts = pd.read_csv(os.path.join(links_dir, counts_fn), sep='\t', skipfooter=5, names=['id','intensity']).set_index('id').sort_index().iloc[:,0] # assume this is of the HTSeq (as opposed to STAR) format
+        
+        # Append the read-in and calculated values to running lists
+        srs_counts.append(sr_counts)
+
+        print('\r', '{:3.1f}% complete...'.format((isample+1)/nsamples*100), end='')
+    
+    # Put the list of series into a Pandas dataframe
+    df_counts = pd.DataFrame(srs_counts, index=df_samples.index)
+
+    # Return the calculated lists of series
+    return(df_counts)
+
+
+# Convert the lists of Pandas series to Pandas dataframes
+def make_intensities_dataframes(srs_list, index):
+    import pandas as pd
+    counts_list = []
+    for srs in srs_list:
+        counts_list.append(pd.DataFrame(srs, index=index))
+    return(counts_list)
+
+
+# Print some random data for us to spot-check in the files themselves to manually ensure we have a handle on the data arrays
+def spot_check_data(intensities):
+
+    # Import relevant library
+    import random
+
+    # Constants
+    intensity_types = ['counts', 'FPKM', 'FPKM-UQ']
+    nsamples = 5
+
+    # Get some values from the intensity data
+    nsamples_tot = intensities[0].shape[0]
+    sample_names = intensities[0].index
+
+    # For each intensity type...
+    for iintensity, intensity_type in enumerate(intensity_types):
+
+        # For each of nsamples random samples in the data...
+        for sample_index in random.sample(range(nsamples_tot), k=nsamples):
+
+            # Store the current sample name
+            sample_name = sample_names[sample_index]
+
+            # Get the non-zero intensities for the current sample
+            srs = intensities[iintensity].iloc[sample_index,:]
+            srs2 = srs[srs!=0]
+
+            # Get a random index of the non-zero intensities and store the corresponding intensity and gene
+            srs2_index = random.randrange(len(srs2))
+            intensity = srs2[srs2_index]
+            gene = srs2.index[srs2_index]
+
+            # Print what we should see in the files
+            print('Sample {} should have a {} value of {} for gene {}'.format(sample_name, intensity_type, intensity, gene))
+
+
+# Load the data downloaded from the GDC Data Portal
+def load_gdc_data(sample_sheet_file, metadata_file, links_dir):
+
+    # Import the relevant libraries
+    import os
+    tci = get_tci_library()
+
+    # Identify the data directory as the directory that the sample sheet file is in
+    os_sep = os.sep
+    data_dir = os_sep.join(sample_sheet_file.split(sep=os_sep)[:-1])
+
+    # If the file containing the GDC data does not already exist...
+    if not os.path.exists(os.path.join(data_dir,'gdc_data.pkl')):
+
+        # Obtain a Pandas dataframe from the fields of interest for all samples, essentially containing everything we'll ever need to know about the samples, including the labels themselves
+        df_samples = get_labels_dataframe(sample_sheet_file, metadata_file) # this will always be in alphabetical order of the sample IDs
+
+        # Read in the counts for all the samples in the samples dataframe df_samples
+        df_counts = get_counts(df_samples, links_dir) # the counts dataframe will be in the same order as df_samples
+
+        # Write a pickle file containing the data that takes a while to calculate
+        tci.make_pickle([df_samples, df_counts], data_dir, 'gdc_data.pkl')
+
+    # Otherwise, read it in
+    else:
+        [df_samples, df_counts] = tci.load_pickle(data_dir, 'gdc_data.pkl')
+
+    return(df_samples, df_counts)
+
+
+# Calculate the FPKM and FPKM-UQ dataframes, and check them with known values if the needed datafiles are present
+# the FPKM and FPKM-UQ dataframes will be in the same order as df_samples
+# since df_counts is in the same order as df_samples, then the counts and FPKM/FPKM-UQ dataframes will also be aligned
+# regardless, this shouldn't be a problem moving forward, since df_samples will always be in lexical order of the sample IDs!
+# not to mention, whenever we're unsure, we should run the spot-checks!
+def get_fpkm(df_counts, annotation_file, df_samples, links_dir):
 
     # Import relevant libraries
     import os
     import pandas as pd
     tci = get_tci_library()
 
-    # If the file containing the lists of series does not already exist...
-    if not os.path.exists(os.path.join(project_dir,'data','series_lists.pkl')):
+    # Identify the data directory as the directory that the annotation file is in
+    os_sep = os.sep
+    data_dir = os_sep.join(annotation_file.split(sep=os_sep)[:-1])
+
+    # If the file containing the FPKM/FPKM-UQ data does not already exist...
+    if not os.path.exists(os.path.join(data_dir,'fpkm_data.pkl')):
 
         # Ensure that all values in the "counts file name" column of df_samples are unique as expected
         nsamples = len(df_samples)
-        if not len(df_samples['counts file name'].unique()) == nsamples:
-            print('ERROR: "counts file name" column of the samples dataframe does not contain all unique values')
-            exit()
 
         # Strip the ".gz" off of the filenames in the "counts file name" column of the samples dataframe
         counts_filenames = [ x.split(sep='.gz')[0] for x in df_samples['counts file name'] ]
@@ -620,15 +740,17 @@ def get_intensities(df_samples, links_dir, df_gencode_genes, project_dir):
         # Obtain a listing of all the files in the links directory
         files_in_links_dir = os.listdir(links_dir)
 
+        # Prepare the annotation dataframe df_gencode_genes, particularly calculating the exon length of each gene (corresponding to its non-overlapping exons) and adding this as a column to the df_gencode_genes dataframe
+        # This takes about 10 minutes if the pickle file doesn't already exist
+        df_gencode_genes = calculate_exon_lengths(annotation_file)
+
         # For every counts filename in the samples dataframe...
-        srs_counts = []
         srs_fpkm = []
         srs_fpkm_uq = []
-        counts_fn_holder = []
         for isample, counts_fn in enumerate(counts_filenames):
 
             # Read in the counts data
-            sr_counts = pd.read_csv(os.path.join(links_dir, counts_fn), sep='\t', skipfooter=5, names=['id','intensity']).set_index('id').sort_index().iloc[:,0] # assume this is of the HTSeq (as opposed to STAR) format
+            sr_counts = df_counts.iloc[isample,:]
 
             # Use those counts data to calculate the FPKM and FPKM-UQ values
             sr_fpkm, sr_fpkm_uq = calculate_fpkm(df_gencode_genes, sr_counts)
@@ -685,64 +807,20 @@ def get_intensities(df_samples, links_dir, df_gencode_genes, project_dir):
                     exit()
 
             # Append the read-in and calculated values to running lists
-            srs_counts.append(sr_counts)
             srs_fpkm.append(sr_fpkm)
             srs_fpkm_uq.append(sr_fpkm_uq)
-            counts_fn_holder.append(counts_fn)
 
             print('\r', '{:3.1f}% complete...'.format((isample+1)/nsamples*100), end='')
 
-        # Write a pickle file containing the data that take a while to calculate
-        tci.make_pickle([srs_counts, srs_fpkm, srs_fpkm_uq, counts_fn_holder], os.path.join(project_dir,'data'), 'series_lists.pkl')
+        # Put the lists of series into dataframes
+        df_fpkm = pd.DataFrame(srs_fpkm, index=df_samples.index)
+        df_fpkm_uq = pd.DataFrame(srs_fpkm_uq, index=df_samples.index)
+
+        # Write a pickle file containing the data that takes a while to calculate
+        tci.make_pickle([df_fpkm, df_fpkm_uq], data_dir, 'fpkm_data.pkl')
 
     # Otherwise, read it in
     else:
-        [srs_counts, srs_fpkm, srs_fpkm_uq, counts_fn_holder] = tci.load_pickle(os.path.join(project_dir,'data'), 'series_lists.pkl')
+        [df_fpkm, df_fpkm_uq] = tci.load_pickle(data_dir, 'fpkm_data.pkl')
 
-    # Return the calculated lists of series
-    return(srs_counts, srs_fpkm, srs_fpkm_uq, counts_fn_holder)
-
-
-# Convert the lists of Pandas series to Pandas dataframes
-def make_intensities_dataframes(srs_list, index):
-    import pandas as pd
-    counts_list = []
-    for srs in srs_list:
-        counts_list.append(pd.DataFrame(srs, index=index))
-    return(counts_list)
-
-
-# Print some random data for us to spot-check in the files themselves to manually ensure we have a handle on the data arrays
-def spot_check_data(intensities):
-
-    # Import relevant library
-    import random
-
-    # Constants
-    intensity_types = ['counts', 'FPKM', 'FPKM-UQ']
-    nsamples = 5
-
-    # Get some values from the intensity data
-    nsamples_tot = intensities[0].shape[0]
-    sample_names = intensities[0].index
-
-    # For each intensity type...
-    for iintensity, intensity_type in enumerate(intensity_types):
-
-        # For each of nsamples random samples in the data...
-        for sample_index in random.sample(range(nsamples_tot), k=nsamples):
-
-            # Store the current sample name
-            sample_name = sample_names[sample_index]
-
-            # Get the non-zero intensities for the current sample
-            srs = intensities[iintensity].iloc[sample_index,:]
-            srs2 = srs[srs!=0]
-
-            # Get a random index of the non-zero intensities and store the corresponding intensity and gene
-            srs2_index = random.randrange(len(srs2))
-            intensity = srs2[srs2_index]
-            gene = srs2.index[srs2_index]
-
-            # Print what we should see in the files
-            print('Sample {} should have a {} value of {} for gene {}'.format(sample_name, intensity_type, intensity, gene))
+    return(df_fpkm, df_fpkm_uq)
