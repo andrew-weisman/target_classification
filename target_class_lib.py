@@ -647,14 +647,16 @@ def make_intensities_dataframes(srs_list, index):
 
 
 # Print some random data for us to spot-check in the files themselves to manually ensure we have a handle on the data arrays
-def spot_check_data(intensities):
+def spot_check_data(df_samples, df_counts, df_fpkm, df_fpkm_uq, nsamples=4):
 
     # Import relevant library
     import random
 
     # Constants
     intensity_types = ['counts', 'FPKM', 'FPKM-UQ']
-    nsamples = 5
+
+    # Variable
+    intensities = [df_counts, df_fpkm, df_fpkm_uq]
 
     # Get some values from the intensity data
     nsamples_tot = intensities[0].shape[0]
@@ -678,8 +680,12 @@ def spot_check_data(intensities):
             intensity = srs2[srs2_index]
             gene = srs2.index[srs2_index]
 
+            # Get some important data from the samples dataframe
+            project_id = df_samples.loc[sample_name, 'project id']
+            sample_type = df_samples.iloc[sample_index, 6]
+
             # Print what we should see in the files
-            print('Sample {} should have a {} value of {} for gene {}'.format(sample_name, intensity_type, intensity, gene))
+            print('Sample {} ({}, {}) should have a {} value of {} for gene {}'.format(sample_name, project_id, sample_type, intensity_type, intensity, gene))
 
 
 # Load the data downloaded from the GDC Data Portal
