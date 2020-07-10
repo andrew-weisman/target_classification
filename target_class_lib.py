@@ -624,6 +624,7 @@ def get_intensities(df_samples, links_dir, df_gencode_genes, project_dir):
         srs_counts = []
         srs_fpkm = []
         srs_fpkm_uq = []
+        counts_fn_holder = []
         for isample, counts_fn in enumerate(counts_filenames):
 
             # Read in the counts data
@@ -687,18 +688,19 @@ def get_intensities(df_samples, links_dir, df_gencode_genes, project_dir):
             srs_counts.append(sr_counts)
             srs_fpkm.append(sr_fpkm)
             srs_fpkm_uq.append(sr_fpkm_uq)
+            counts_fn_holder.append(counts_fn)
 
             print('\r', '{:3.1f}% complete...'.format((isample+1)/nsamples*100), end='')
 
         # Write a pickle file containing the data that take a while to calculate
-        tci.make_pickle([srs_counts, srs_fpkm, srs_fpkm_uq], os.path.join(project_dir,'data'), 'series_lists.pkl')
+        tci.make_pickle([srs_counts, srs_fpkm, srs_fpkm_uq, counts_fn_holder], os.path.join(project_dir,'data'), 'series_lists.pkl')
 
     # Otherwise, read it in
     else:
-        [srs_counts, srs_fpkm, srs_fpkm_uq] = tci.load_pickle(os.path.join(project_dir,'data'), 'series_lists.pkl')
+        [srs_counts, srs_fpkm, srs_fpkm_uq, counts_fn_holder] = tci.load_pickle(os.path.join(project_dir,'data'), 'series_lists.pkl')
 
     # Return the calculated lists of series
-    return(srs_counts, srs_fpkm, srs_fpkm_uq)
+    return(srs_counts, srs_fpkm, srs_fpkm_uq, counts_fn_holder)
 
 
 # Convert the lists of Pandas series to Pandas dataframes
@@ -708,3 +710,39 @@ def make_intensities_dataframes(srs_list, index):
     for srs in srs_list:
         counts_list.append(pd.DataFrame(srs, index=index))
     return(counts_list)
+
+
+# Print some random data for us to spot-check in the files themselves to manually ensure we have a handle on the data arrays
+def spot_check_data(intensities):
+
+    # Import relevant library
+    import random
+
+    # Constants
+    intensity_types = ['counts', 'FPKM', 'FPKM-UQ']
+    nsamples = 5
+
+    # Get some values from the intensity data
+    nsamples_tot = intensities[0].shape[0]
+    sample_names = intensities[0].index
+
+    # For each intensity type...
+    for iintensity, intensity_type in enumerate(intensity_types):
+
+        # For each of nsamples random samples in the data...
+        for sample_index in random.sample(range(nsamples_tot), k=nsamples):
+
+            # Store the current sample name
+            sample_name = sample_names[sample_index]
+
+            # Get the non-zero intensities for the current sample
+            srs = intensities[iintensity].iloc[sample_index,:]
+            srs2 = srs[srs!=0]
+
+            # Get a random index of the non-zero intensities and store the corresponding intensity and gene
+            srs2_index = random.randrange(len(srs2))
+            intensity = srs2[srs2_index]
+            gene = srs2.index[srs2_index]
+
+            # Print what we should see in the files
+            print('Sample {} should have a {} value of {} for gene {}'.format(sample_name, intensity_type, intensity, gene))
