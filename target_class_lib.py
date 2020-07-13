@@ -830,3 +830,77 @@ def get_fpkm(df_counts, annotation_file, df_samples, links_dir):
         [df_fpkm, df_fpkm_uq] = tci.load_pickle(data_dir, 'fpkm_data.pkl')
 
     return(df_fpkm, df_fpkm_uq)
+
+
+# Calculate the TPM using the counts and gene lengths
+def get_tpm(C_df, annotation_file):
+
+    # Note: I've confirmed TPM calculation with get_tpm_from_fpkm() function below using both FPKM and FPKM-UQ via:
+    # df_tpm = tc.get_tpm(df_counts, annotation_file)
+    # df_tpm1 = tc.get_tpm_from_fpkm(df_fpkm)
+    # df_tpm2 = tc.get_tpm_from_fpkm(df_fpkm_uq)
+    # import numpy as np
+    # print(np.amax(np.abs(df_tpm1-df_tpm).to_numpy(), axis=(0,1)))
+    # print(np.amax(np.abs(df_tpm2-df_tpm).to_numpy(), axis=(0,1)))
+    # print(np.amax(np.abs(df_tpm2-df_tpm1).to_numpy(), axis=(0,1)))
+    # print(np.sqrt(np.mean(((df_tpm1-df_tpm)**2).to_numpy(), axis=(0,1))))
+    # print(np.sqrt(np.mean(((df_tpm2-df_tpm)**2).to_numpy(), axis=(0,1))))
+    # print(np.sqrt(np.mean(((df_tpm2-df_tpm1)**2).to_numpy(), axis=(0,1))))
+
+    # Import relevant library
+    import numpy as np
+
+    # Calculate the aggregate exon lengths the way GDC does it
+    # series of length ngenes
+    L_srs = calculate_exon_lengths(annotation_file)['exon_length']
+
+    # Ensure the gene order in the counts and lengths is consistent so that we can perform joint operations on them
+    if not C_df.columns.equals(L_srs.index):
+        print('ERROR: Order of genes in the counts dataframe is not the same as that in the lengths series')
+        exit()
+
+    # Extract the numbers of samples and genes; it seems like this may be unnecessary as seen in the comment after counts_norm, but doing things explicitly like this is significantly faster
+    # C_df is a dataframe of shape (nsamples, ngenes)
+    nsamples, ngenes = C_df.shape
+
+    # Normalize the counts by their corresponding gene lengths
+    # denominator: (nsamples,ngenes) --> repeats over axis=0 (i.e., depends only on gene, not sample) --> L_ij = L_j
+    # numerator: (nsamples,ngenes) --> C_ij
+    # Cn_ij = C_ij / L_j
+    counts_norm = C_df / np.tile(np.expand_dims(L_srs, axis=0), (nsamples,1)) # this equals "C_df / L_srs" (which is simpler) but doing it this way is significantly faster
+
+    # Calculate the normalization factor for each sample
+    # D_ij = SUM(Cn_ij,j) --> repeats over axis=1 (i.e., depends only on sample, not gene) --> D_ij = D_i
+    denom = np.tile(np.expand_dims(counts_norm.sum(axis=1), axis=1), (1,ngenes))
+
+    # Calculate the TPM
+    # Cn_ij / D_ij * 10^6
+    # C_ij / L_j / SUM(C_ij/L_j,j) * 10^6
+    # T_si = C_si / L_i / SUM(C_sk/L_k,k) * 10^6
+    # This is perfectly consistent with boxed formula in sectino 2.3.1 of tpm_calculation.pdf
+    tpm = counts_norm / denom * 1e6
+
+    return(tpm)
+
+
+# Calculate the TPM using FPKM or FPKM-UQ
+def get_tpm_from_fpkm(F_df):
+
+    # Import relevant library
+    import numpy as np
+
+    # Extract the number of genes
+    # F_ij: (nsamples,ngenes)
+    ngenes = F_df.shape[1]
+
+    # Calculate the normalization factor for each sapmle
+    # D_ij = SUM(F_ij,j) --> repeats over axis=1 (i.e., depends only on sample, not gene) --> D_ij = D_i
+    denom = np.tile(np.expand_dims(F_df.sum(axis=1), axis=1), (1,ngenes))
+
+    # Calculate the TPM
+    # T_ij = F_ij / D_ij * 10^6
+    # T_si = F_si / SUM(F_sk,k) * 10^6
+    # This formula is perfectly consistent with the first lines in sections 2.3.1 and 2.3.2 of tpm_calculation.pdf
+    tpm = F_df / denom * 1e6
+
+    return(tpm)
