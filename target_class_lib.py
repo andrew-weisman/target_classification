@@ -904,3 +904,64 @@ def get_tpm_from_fpkm(F_df):
     tpm = F_df / denom * 1e6
 
     return(tpm)
+
+
+# Write annotation and gene counts files (two files total) that are in the same format as the pasilla example so that we can follow the steps outlined at
+# http://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#count-matrix-input
+def write_sample_for_deseq2_input(srs_labels, df_counts, data_directory, reqd_string_in_label='primary tumor', nsamples_per_condition=[5,3,9]):
+
+    # Sample call: write_sample_for_deseq2_input(df_samples['label 1'], df_counts, data_directory)
+
+    # Import relevant libraries
+    import numpy as np
+    import os
+
+    # Get a subset (using both a string in the condition names and a particular number of conditions) of the series of the value counts of the label of interest
+    label_value_counts = srs_labels.value_counts()
+    srs_subset = label_value_counts[[ reqd_string_in_label in x.lower() for x in label_value_counts.index ]][:len(nsamples_per_condition)]
+    print('Using the following conditions (though not all of the samples for each label):')
+    print(srs_subset)
+
+    # Construct a list of indexes (actual numbers) to use as a sample of all our data
+    all_indexes_to_use = []
+    for label, nsamples in zip(srs_subset.index, nsamples_per_condition): # for each condition (label) and inputted number of samples to use for each condition...
+        indexes = np.argwhere((srs_labels==label).to_numpy()).flatten() # get the numerical indexes of the current label
+        indexes_to_use = list(indexes[:nsamples]) # get just the number of numerical indexes that we want for the current condition
+        print('\nHere are the {} indexes out of {} that correspond to the condition {}:'.format(len(indexes), len(srs_labels), label))
+        print(indexes)
+        print('However, we\'re only using the first {}:'.format(nsamples))
+        print(indexes_to_use)
+        all_indexes_to_use = all_indexes_to_use + indexes_to_use
+    print('\nHere is the final set of numerical indexes that we\'re using ({}={} of them):'.format(sum(nsamples_per_condition), len(all_indexes_to_use)))
+    print(all_indexes_to_use)
+
+    # Get just a sample of the labels/conditions and counts
+    all_samples_to_use = srs_labels.index[all_indexes_to_use] # get the actual descriptive indexes from the numerical indexes
+    labels_to_use = srs_labels[all_samples_to_use]
+    counts_to_use = df_counts.loc[all_samples_to_use,:].transpose()
+
+    # Delete rows of counts that are all zeros
+    counts_to_use = counts_to_use[(counts_to_use!=0).any(axis=1)]
+
+    # Do a quick check of the list of labels/conditions
+    conditions_list = []
+    for nsamples, label in zip(nsamples_per_condition, labels_to_use[np.cumsum(nsamples_per_condition)-1]):
+        conditions_list = conditions_list + [label]*nsamples
+    if conditions_list != labels_to_use.to_list():
+        print('ERROR: The actual list of labels/conditions is not what\'s expected')
+        exit()
+
+    # Check that the indexes of the counts and labels that we're going to write out are the same    
+    if not counts_to_use.columns.equals(labels_to_use.index):
+        print('ERROR: Indexes/columns of the labels/counts are inconsistent')
+        exit()
+
+    # Write the annotation file in the same format as the pasilla example
+    with open(file=os.path.join(data_directory, 'annotation.csv'), mode='w') as f:
+        print('"file","condition"', file=f)
+        for curr_file, condition in zip(labels_to_use.index, labels_to_use):
+            print('"{}","{}"'.format(curr_file, condition), file=f)
+
+    # Write the gene counts in the same format as the pasilla example
+    with open(file=os.path.join(data_directory, 'gene_counts.tsv'), mode='w') as f:
+        counts_to_use.to_csv(f, sep='\t', index_label='gene_id')
