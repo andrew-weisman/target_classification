@@ -1,4 +1,5 @@
 DESeqDataSetFromPython <- function(cts_file, anno_file) {
+    library("DESeq2")
     cts <- as.matrix(read.csv(cts_file, sep="\t", row.names="gene_id"))
     coldata <- read.csv(anno_file, row.names=1)
     coldata$condition <- gsub("-", "_", coldata$condition)
@@ -13,28 +14,51 @@ DESeqDataSetFromPython <- function(cts_file, anno_file) {
 }
 
 
-rlogUnsupervised <- function(dds) {
+normUnsupervised <- function(dds) {
+    # all(assay(dds) == counts(dds))
+    # all(log2(counts(dds, normalized=TRUE)+1) == assay(ntd))
+    library("DESeq2")
+    library("ggplot2")
+    ntd <- normTransform(dds) # note no blind option; this does log2(count(dds,normalized=TRUE) + 1)
+    png("/data/BIDS-HPC/private/projects/dmi2/data/normal_transformation.png", height = 6, width = 6, res = 150, units = 'in')
+    print(plotPCA(ntd, intgroup="condition") + ggtitle("normal transformation"))
+    dev.off()
+}
 
+
+rlogUnsupervised <- function(dds) {
+    library("DESeq2")
+    library("ggplot2")
     #rld <- rlog(dds) # original example
     rld <- rlog(dds, blind=FALSE) # my version makes it not blind
-
     #plot(hclust(dist(t(assay(rld))))) # original example
-    plotPCA(rld, intgroup="condition") # my version runs PCA instead of plotting a distance matrix
+    png("/data/BIDS-HPC/private/projects/dmi2/data/rlog_transformation.png", height = 6, width = 6, res = 150, units = 'in')
+    print(plotPCA(rld, intgroup="condition") + ggtitle("rlog transformation")) # my version runs PCA instead of plotting a distance matrix
+    dev.off()
 }
 
 
 vstUnsupervised <- function(dds) {
-
+    library("DESeq2")
+    library("ggplot2")
     #vsd <- varianceStabilizingTransformation(dds) # original example
     vsd <- vst(dds, blind=FALSE) # my version uses vst() instead of varianceStabilizingTransformation() and also makes it not blind
-
     #plot(hclust(dist(t(assay(vsd))))) # original example
-    plotPCA(vsd, intgroup="condition") # my version runs PCA instead of plotting a distance matrix
+    png("/data/BIDS-HPC/private/projects/dmi2/data/variance_stabilizing_transformation.png", height = 6, width = 6, res = 150, units = 'in')
+    print(plotPCA(vsd, intgroup="condition") + ggtitle("variance-stabilizing transformation")) # my version runs PCA instead of plotting a distance matrix
+    dev.off()
+}
 
+
+allUnsupervised <- function(dds) {
+    normUnsupervised(dds)
+    rlogUnsupervised(dds)
+    vstUnsupervised(dds)
 }
 
 
 rlogSupervised <- function(ddsOld, ddsNew) {
+    library("DESeq2")
 
     # Run the rlog transformation on one dataset
     #design(ddsOld) <- ~ 1 # from ?vst (at least the webpage) I believe this makes rlog() strictly blind to the experimental design, which we don't want, so I'm commenting it out
@@ -54,6 +78,7 @@ rlogSupervised <- function(ddsOld, ddsNew) {
 
 
 vstSupervised <- function(ddsOld, ddsNew) {
+    library("DESeq2")
 
     # Learn the dispersion function of a dataset
     #design(ddsOld) <- ~ 1 # from ?vst (at least the webpage) I believe this makes vst() (even though it's not explicitly run?) strictly blind to the experimental design, which we don't want, so I'm commenting it out
@@ -70,28 +95,12 @@ vstSupervised <- function(ddsOld, ddsNew) {
 }
 
 
-# Import relevant library
-library("DESeq2")
+# # rlog - supervised
+# ddsOld <- makeExampleDESeqDataSet(m=6,betaSD=1)
+# ddsNew <- makeExampleDESeqDataSet(m=6,betaSD=1)
+# rlogSupervised(ddsOld, ddsNew)
 
-# Original workflow
-dds <-- DESeqDataSetFromPython("/data/BIDS-HPC/private/projects/dmi2/data/gene_counts.tsv", "/data/BIDS-HPC/private/projects/dmi2/data/annotation.csv")
-dds <- DESeq(dds) # can we omit this line in this block of three lines?
-ntd <- normTransform(dds) # note no blind option; this does log2(count(dds,normalized=TRUE) + 1)
-
-# rlog - unsupervised
-dds <- makeExampleDESeqDataSet(m=6,betaSD=1)
-rlogUnsupervised(dds)
-
-# rlog - supervised
-ddsOld <- makeExampleDESeqDataSet(m=6,betaSD=1)
-ddsNew <- makeExampleDESeqDataSet(m=6,betaSD=1)
-rlogSupervised(ddsOld, ddsNew)
-
-# vst - unsupervised
-dds <- makeExampleDESeqDataSet(m=6)
-vstUnsupervised(dds)
-
-# vst - supervised
-ddsOld <- makeExampleDESeqDataSet(m=6)
-ddsNew <- makeExampleDESeqDataSet(m=1)
-vstSupervised(ddsOld, ddsNew)
+# # vst - supervised
+# ddsOld <- makeExampleDESeqDataSet(m=6)
+# ddsNew <- makeExampleDESeqDataSet(m=1)
+# vstSupervised(ddsOld, ddsNew)

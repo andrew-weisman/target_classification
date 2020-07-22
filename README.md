@@ -52,7 +52,12 @@ for file in $(ls | grep -v MANIFEST.txt); do echo $file | awk -v FS="." '{print 
 
 shows that, ostensibly, there are 2,481 unique expression files (independent of normalization).
 
+Go through the `Main` section in the Python Jupyter notebook `/data/BIDS-HPC/private/projects/dmi2/checkout/main.ipynb`.
+
+Go through the `Main` section in the R Jupyter notebook `/data/BIDS-HPC/private/projects/dmi2/checkout/main_r.ipynb`.
+
 ## Next up
 
-* Use `main.ipynb` and the GDC GitHub website, e.g. [here](https://github.com/NCI-GDC/htseq-tool/blob/master/htseq_tools/tools/fpkm.py), to calculate FPKM from counts and FPKM-UQ from FPKM and then hopefully calculate FPKM-UQ from STAR so that we can utilize all those counts as well
-* Check that the STAR expression files refer to different samples, or if they refer to the same ones, then I at least have a nice way to compare methods
+* Save the parameters and ensure I can reproduce the transformed values from the saved parameters (and ensure I save/note the data generating those parameters)
+* Complete whole data normalization workflow (both unsupervised and supervised) with the sample data
+* Run the workflow on the full dataset

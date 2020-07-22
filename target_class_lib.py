@@ -914,7 +914,7 @@ def write_sample_for_deseq2_input(srs_labels, df_counts, data_directory, reqd_st
 
     # Import relevant libraries
     import numpy as np
-    import os
+    import os, random
 
     # Get a subset (using both a string in the condition names and a particular number of conditions) of the series of the value counts of the label of interest
     label_value_counts = srs_labels.value_counts()
@@ -926,10 +926,12 @@ def write_sample_for_deseq2_input(srs_labels, df_counts, data_directory, reqd_st
     all_indexes_to_use = []
     for label, nsamples in zip(srs_subset.index, nsamples_per_condition): # for each condition (label) and inputted number of samples to use for each condition...
         indexes = np.argwhere((srs_labels==label).to_numpy()).flatten() # get the numerical indexes of the current label
-        indexes_to_use = list(indexes[:nsamples]) # get just the number of numerical indexes that we want for the current condition
+        #indexes_to_use = list(indexes[:nsamples]) # get just the number of numerical indexes that we want for the current condition - first nsamples of the list
+        indexes_to_use = random.sample(list(indexes), nsamples) # get just the number of numerical indexes that we want for the current condition - random nsamples of the list
         print('\nHere are the {} indexes out of {} that correspond to the condition {}:'.format(len(indexes), len(srs_labels), label))
         print(indexes)
-        print('However, we\'re only using the first {}:'.format(nsamples))
+        #print('However, we\'re only using the first {}:'.format(nsamples))
+        print('However, we\'re using just a random sample of {} items:'.format(nsamples))
         print(indexes_to_use)
         all_indexes_to_use = all_indexes_to_use + indexes_to_use
     print('\nHere is the final set of numerical indexes that we\'re using ({}={} of them):'.format(sum(nsamples_per_condition), len(all_indexes_to_use)))
