@@ -31,7 +31,7 @@ plot_pca_and_tsne <- function(transformed_data, transformation_name, data_dir, i
     library("Rtsne")
 
     # Set the random seed for the tSNE analysis below
-    # set.seed(44)    
+    set.seed(44)
 
     # Determine the top-ntop-variance genes
     rv <- rowVars(assay(transformed_data)) # take the variances of each row (gene) probably
