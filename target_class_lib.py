@@ -908,13 +908,14 @@ def get_tpm_from_fpkm(F_df):
 
 # Write annotation and gene counts files (two files total) that are in the same format as the pasilla example so that we can follow the steps outlined at
 # http://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#count-matrix-input
-def write_sample_for_deseq2_input(srs_labels, df_counts, data_directory, reqd_string_in_label='primary tumor', nsamples_per_condition=[5,3,9]):
+def write_sample_for_deseq2_input(srs_labels, df_counts, data_directory, dataset_name, reqd_string_in_label='primary tumor', nsamples_per_condition=[5,3,9]):
 
     # Sample call: write_sample_for_deseq2_input(df_samples['label 1'], df_counts, data_directory)
 
     # Import relevant libraries
     import numpy as np
     import os, random
+    tci = get_tci_library()
 
     # Get a subset (using both a string in the condition names and a particular number of conditions) of the series of the value counts of the label of interest
     label_value_counts = srs_labels.value_counts()
@@ -958,12 +959,18 @@ def write_sample_for_deseq2_input(srs_labels, df_counts, data_directory, reqd_st
         print('ERROR: Indexes/columns of the labels/counts are inconsistent')
         exit()
 
+    # Create the dataset directory if it doesn't already exist
+    os.makedirs(os.path.join(data_directory, 'datasets', dataset_name))
+
     # Write the annotation file in the same format as the pasilla example
-    with open(file=os.path.join(data_directory, 'annotation.csv'), mode='w') as f:
+    with open(file=os.path.join(data_directory, 'datasets', dataset_name, 'annotation.csv'), mode='w') as f:
         print('"file","condition"', file=f)
         for curr_file, condition in zip(labels_to_use.index, labels_to_use):
             print('"{}","{}"'.format(curr_file, condition), file=f)
 
     # Write the gene counts in the same format as the pasilla example
-    with open(file=os.path.join(data_directory, 'gene_counts.tsv'), mode='w') as f:
+    with open(file=os.path.join(data_directory, 'datasets', dataset_name, 'gene_counts.tsv'), mode='w') as f:
         counts_to_use.to_csv(f, sep='\t', index_label='gene_id')
+
+    # Save the dataset data
+    tci.make_pickle([srs_labels, df_counts, data_directory, dataset_name, reqd_string_in_label, nsamples_per_condition, label_value_counts, srs_subset, all_indexes_to_use, all_samples_to_use, labels_to_use, counts_to_use, conditions_list], os.path.join(data_directory, 'datasets', dataset_name), dataset_name+'.pkl')
