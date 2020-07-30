@@ -974,3 +974,48 @@ def write_sample_for_deseq2_input(srs_labels, df_counts, data_directory, dataset
 
     # Save the dataset data
     tci.make_pickle([srs_labels, df_counts, data_directory, dataset_name, reqd_string_in_label, nsamples_per_condition, label_value_counts, srs_subset, all_indexes_to_use, all_samples_to_use, labels_to_use, counts_to_use, conditions_list], os.path.join(data_directory, 'datasets', dataset_name), dataset_name+'.pkl')
+
+
+# Write all the data for input into DESeq2, instead of just a sample
+def write_all_data_for_deseq2_input(srs_labels, df_counts, data_directory, dataset_name):
+
+    # Sample call: write_all_data_for_deseq2_input(df_samples['label 1'], df_counts, data_directory, 'all_data')
+
+    # Import relevant libraries
+    import numpy as np
+    import os
+    tci = get_tci_library()
+
+    # Construct a list of indexes (actual numbers) to use as a sample of all our data (this time we're using them all)
+    all_indexes_to_use = [ x for x in range(len(srs_labels)) ]
+    print('\nHere is the final set of numerical indexes that we\'re using ({} of them):'.format(len(all_indexes_to_use)))
+    print(all_indexes_to_use)
+
+    # Get just a sample of the labels/conditions and counts
+    all_samples_to_use = srs_labels.index[all_indexes_to_use] # get the actual descriptive indexes from the numerical indexes
+    labels_to_use = srs_labels[all_samples_to_use]
+    counts_to_use = df_counts.loc[all_samples_to_use,:].transpose()
+
+    # Delete rows of counts that are all zeros
+    counts_to_use = counts_to_use[(counts_to_use!=0).any(axis=1)]
+
+    # Check that the indexes of the counts and labels that we're going to write out are the same    
+    if not counts_to_use.columns.equals(labels_to_use.index):
+        print('ERROR: Indexes/columns of the labels/counts are inconsistent')
+        exit()
+
+    # Create the dataset directory if it doesn't already exist
+    os.makedirs(os.path.join(data_directory, 'datasets', dataset_name))
+
+    # Write the annotation file in the same format as the pasilla example
+    with open(file=os.path.join(data_directory, 'datasets', dataset_name, 'annotation.csv'), mode='w') as f:
+        print('"file","condition"', file=f)
+        for curr_file, condition in zip(labels_to_use.index, labels_to_use):
+            print('"{}","{}"'.format(curr_file, condition), file=f)
+
+    # Write the gene counts in the same format as the pasilla example
+    with open(file=os.path.join(data_directory, 'datasets', dataset_name, 'gene_counts.tsv'), mode='w') as f:
+        counts_to_use.to_csv(f, sep='\t', index_label='gene_id')
+
+    # Save the dataset data
+    tci.make_pickle([srs_labels, df_counts, data_directory, dataset_name, all_indexes_to_use, all_samples_to_use, labels_to_use, counts_to_use], os.path.join(data_directory, 'datasets', dataset_name), dataset_name+'.pkl')

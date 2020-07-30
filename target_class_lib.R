@@ -6,6 +6,7 @@ DESeqDataSetFromPython <- function(cts_file, anno_file) {
     coldata$condition <- gsub("-", "_", coldata$condition)
     coldata$condition <- gsub(",", ".", coldata$condition)
     coldata$condition <- gsub(" ", "", coldata$condition)
+    coldata$condition <- gsub("TARGET_", "", coldata$condition)
     coldata$condition <- factor(coldata$condition)
     rownames(coldata) <- gsub("-", "_", rownames(coldata))
     colnames(cts) <- gsub("\\.", "_", colnames(cts))
@@ -51,31 +52,49 @@ plot_pca_and_tsne <- function(transformed_data, transformation_name, data_dir, i
     # Plot and save the PCA
     d <- data.frame(PC1 = pca$x[, 1], PC2 = pca$x[, 2], group = group, intgroup.df, name = colnames(transformed_data))
     percentVar <- pca$sdev^2/sum(pca$sdev^2)
-    png(paste0(data_dir, "/pca_", tolower(gsub(" ", "_", transformation_name)), ".png"), height = 6, width = 6, res = 150, units = 'in')
-    print(ggplot(data = d, aes_string(x = "PC1", y = "PC2", color = "group")) + 
-        geom_point(size = 3) + xlab(paste0("PC1: ", round(percentVar[1] * 
+    #png(paste0(data_dir, "/pca_", tolower(gsub(" ", "_", transformation_name)), ".png"), height = 6, width = 6, res = 150, units = 'in')
+    png(paste0(data_dir, "/pca_", tolower(gsub(" ", "_", transformation_name)), ".png"), height = 12, width = 12, res = 300, units = 'in')
+    #print(ggplot(data = d, aes_string(x = "PC1", y = "PC2", color = "group")) + 
+    print(ggplot(data = d, aes_string(x = "PC1", y = "PC2", color = "group", shape = "group")) + 
+        #geom_point(size = 3) + xlab(paste0("PC1: ", round(percentVar[1] * 
+        geom_point(size = 1) + xlab(paste0("PC1: ", round(percentVar[1] * 
         100), "% variance")) + ylab(paste0("PC2: ", round(percentVar[2] * 
-        100), "% variance")) + coord_fixed() + ggtitle(paste0("PCA - ", transformation_name))) # plot(pca$x[,1:2] ,col=colData(dds)$condition) produces something similar I believe
+        100), "% variance")) + coord_fixed() + ggtitle(paste0("PCA - ", transformation_name)) +
+        scale_shape_manual(values=seq(0,nlevels(d$group)-1))) # plot(pca$x[,1:2] ,col=colData(dds)$condition) produces something similar I believe
+    dev.off()
+
+    # Plot and save the scores of all the PCA components
+    png(paste0(data_dir, "/pca_variances_", tolower(gsub(" ", "_", transformation_name)), ".png"), height = 5, width = 6, res = 150, units = 'in')
+    print(plot(pca, main=paste0("PCA variances - ", transformation_name)))
     dev.off()
 
     # Set the perplexity hyperparameter for tSNE to a reasonable value
     # “Typical values for the perplexity range between 5 and 50”; from help page: should not be bigger than 3 * perplexity < nrow(X) - 1
     nsamples <- dim(t(assay(transformed_data)))[1]
-    perpl <- round((min(floor((nsamples-1)/3), 50) + 5) / 2)
+    #perpl <- round((min(floor((nsamples-1)/3), 50) + 5) / 2)
 
-    # Run tSNE
-    tsne <- Rtsne(t(assay(transformed_data)[select,]), perplexity=perpl, pca=FALSE, theta=0.0) 
+    #for (perpl in seq(5,50,5)) { # do this in general
+    for (perpl in round((min(floor((nsamples-1)/3), 50) + 5) / 2)) { # just trying this temporarily to see if we can get rlog() to converge!
+        print(perpl)
 
-    # Plot and save the tSNE
-    d <- data.frame(AX1 = tsne$Y[, 1], AX2 = tsne$Y[, 2], group = group, intgroup.df, name = colnames(transformed_data))
-    png(paste0(data_dir, "/tsne_", tolower(gsub(" ", "_", transformation_name)), ".png"), height = 6, width = 6, res = 150, units = 'in')
-    print(ggplot(data = d, aes_string(x = "AX1", y = "AX2", color = "group")) +
-        geom_point(size = 3) +
-        xlab("Axis 1") +
-        ylab("Axis 2") +
-        coord_fixed() +
-        ggtitle(paste0("tSNE (perplexity: ", perpl, ") - ", transformation_name))) # this results in the same plot as plot(tsne$Y,col=colData(dds)$condition, asp=1)
-    dev.off()
+        # Run tSNE
+        tsne <- Rtsne(t(assay(transformed_data)[select,]), perplexity=perpl, pca=FALSE, theta=0.0) 
+
+        # Plot and save the tSNE
+        d <- data.frame(AX1 = tsne$Y[, 1], AX2 = tsne$Y[, 2], group = group, intgroup.df, name = colnames(transformed_data))
+        #png(paste0(data_dir, "/tsne_", tolower(gsub(" ", "_", transformation_name)), ".png"), height = 6, width = 6, res = 150, units = 'in')
+        png(paste0(data_dir, "/tsne_", tolower(gsub(" ", "_", transformation_name)), "_perplexity_", perpl, ".png"), height = 12, width = 12, res = 300, units = 'in')
+        print(ggplot(data = d, aes_string(x = "AX1", y = "AX2", color = "group", shape = "group")) +
+            #geom_point(size = 3) +
+            geom_point(size = 1) +
+            xlab("Axis 1") +
+            ylab("Axis 2") +
+            coord_fixed() +
+            ggtitle(paste0("tSNE (perplexity: ", perpl, ") - ", transformation_name)) +
+            scale_shape_manual(values=seq(0,nlevels(d$group)-1))) # this results in the same plot as plot(tsne$Y,col=colData(dds)$condition, asp=1)
+        dev.off()
+
+    }
 
 }
 
