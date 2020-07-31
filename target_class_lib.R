@@ -73,8 +73,8 @@ plot_pca_and_tsne <- function(transformed_data, transformation_name, data_dir, i
     nsamples <- dim(t(assay(transformed_data)))[1]
     #perpl <- round((min(floor((nsamples-1)/3), 50) + 5) / 2)
 
-    #for (perpl in seq(5,50,5)) { # do this in general
-    for (perpl in round((min(floor((nsamples-1)/3), 50) + 5) / 2)) { # just trying this temporarily to see if we can get rlog() to converge!
+    for (perpl in seq(5,50,5)) { # do this in general
+    #for (perpl in round((min(floor((nsamples-1)/3), 50) + 5) / 2)) { # just trying this temporarily to see if we can get rlog() to converge!
         print(perpl)
 
         # Run tSNE
@@ -96,6 +96,20 @@ plot_pca_and_tsne <- function(transformed_data, transformation_name, data_dir, i
 
     }
 
+}
+
+
+saveData <- function(dds, transformation_name, data_dir) {
+    # Note, as we see in rlogSupervised() and vstSupervised() below, there's no need to save the entire dds object, so in the future we can reduce the saved file size by only saving what we need
+    # One benefit to doing it this way however is that this function works for dds, ntd, vsd, and rld
+    # Sample calls:
+    #   saveData(dds, "untransformed_data", data_dir)
+    #   saveData(ntd, "normal_transformation", data_dir)
+    #   saveData(vsd, "variance_stabilized_transformation", data_dir)
+    #   saveData(rld, "rlog_transformation", data_dir)
+    write.csv(assay(dds), file=paste0(data_dir,"/assay_",transformation_name,".csv"), quote=FALSE, na="None")
+    write.csv(colData(dds), file=paste0(data_dir,"/coldata_",transformation_name,".csv"), quote=FALSE, na="None")
+    save(dds, file=paste0(data_dir,"/dds_",transformation_name,".RData")) # load back in with "load(file, verbose=TRUE)" in the environment
 }
 
 
