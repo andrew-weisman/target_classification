@@ -1019,3 +1019,70 @@ def write_all_data_for_deseq2_input(srs_labels, df_counts, data_directory, datas
 
     # Save the dataset data
     tci.make_pickle([srs_labels, df_counts, data_directory, dataset_name, all_indexes_to_use, all_samples_to_use, labels_to_use, counts_to_use], os.path.join(data_directory, 'datasets', dataset_name), dataset_name+'.pkl')
+
+
+# Create and plot PCA and tSNE analyses
+def plot_pca_and_tsne(transformation_name, data_directory, dataset_name, ntop=500, n_components_pca=10, alpha=1, dpi=300):
+
+    # Sample call: plot_pca_and_tsne('/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data/assay_normal_transformation.csv', '/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data/coldata_normal_transformation.csv', 'normal', '/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data')
+    
+    # Import relevant libraries
+    import pandas as pd
+    import sklearn.decomposition as sk_decomp
+    import sklearn.manifold as sk_manif
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import matplotlib.lines as mpl_lines
+    import os
+
+    # Process the arguments
+    transformation_name_filename = transformation_name.lower().replace(' ','_').replace('-','_') # get a version of the transformation_name suitable for filenames
+    data_dir = os.path.join(data_directory, 'datasets', dataset_name) # '/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data'
+    assay_csv_file = os.path.join(data_dir, 'assay_' + transformation_name_filename + '_transformation.csv') # '/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data/assay_variance_stabilizing_transformation.csv'
+    coldata_csv_file = os.path.join(data_dir, 'coldata_' + transformation_name_filename + '_transformation.csv') # '/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data/coldata_variance_stabilizing_transformation.csv'
+
+    # Determine the data matrix
+    df_assay = pd.read_csv(assay_csv_file).set_index('Unnamed: 0') # read in the transformed data
+    top_genes = df_assay.var(axis=1).sort_values(axis=0, ascending=False)[:ntop].index # get the indexes of the top-ntop-variance genes
+    X = df_assay.loc[top_genes,:].T # keep only the top genes and transpose in order to get the typical data matrix format with the samples in the rows
+
+    # Determine the labels vector
+    df_coldata = pd.read_csv(coldata_csv_file).set_index('Unnamed: 0') # read in the column data, which includes the labels (in the 'condition' column)
+    y = df_coldata.loc[X.index,'condition'] # ensure the labels are ordered in the same way as the data and take just the 'condition' column as the label
+
+    # Order the samples by their labels
+    sample_order = y.sort_values().index
+    y = y.loc[sample_order]
+    X = X.loc[sample_order,:]
+    if not y.index.equals(X.index):
+        print('ERROR: Weirdly inconsistent ordering')
+        exit()
+
+    # Perform PCA
+    pca = sk_decomp.PCA(n_components=n_components_pca)
+    pca_res = pca.fit_transform(X)
+    print('Top {} PCA explained variance ratios: {}'.format(n_components_pca, pca.explained_variance_ratio_))
+
+    # Get a reasonable set of markers and color palette
+    markers = mpl_lines.Line2D.filled_markers
+    nclasses = len(set(y))
+    marker_list = markers * int(nclasses/len(markers)+1)
+    color_palette = sns.color_palette("hls", nclasses)
+
+    # Plot and save the PCA
+    fig = plt.figure(figsize=(12,7.5))
+    ax = sns.scatterplot(x=pca_res[:,0], y=pca_res[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=alpha, markers=marker_list, edgecolor='k')
+    ax.legend(bbox_to_anchor=(1,1))
+    ax.set_title('PCA - ' + transformation_name + ' transformation')
+    fig.savefig(os.path.join(data_dir, 'pca_' + transformation_name_filename + '_transformation.png'), dpi=dpi, bbox_inches='tight')
+
+    # Perform tSNE analysis
+    tsne = sk_manif.TSNE(n_components=2)
+    tsne_res = tsne.fit_transform(X)
+
+    # Plot and save the tSNE analysis
+    fig = plt.figure(figsize=(12,7.5))
+    ax = sns.scatterplot(x=tsne_res[:,0], y=tsne_res[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=alpha, markers=marker_list, edgecolor='k')
+    ax.legend(bbox_to_anchor=(1,1))
+    ax.set_title('tSNE - ' + transformation_name + ' transformation')
+    fig.savefig(os.path.join(data_dir, 'tsne_' + transformation_name_filename + '_transformation.png'), dpi=dpi, bbox_inches='tight')

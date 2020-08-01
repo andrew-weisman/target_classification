@@ -54,8 +54,6 @@ shows that, ostensibly, there are 2,481 unique expression files (independent of 
 
 Go through the `Main` section in the Python Jupyter notebook `/data/BIDS-HPC/private/projects/dmi2/checkout/main.ipynb`.
 
-Go through the `Main` section in the R Jupyter notebook `/data/BIDS-HPC/private/projects/dmi2/checkout/main_r.ipynb`.
-
 ## Next up
 
 * Save the parameters and ensure I can reproduce the transformed values from the saved parameters (and ensure I save/note the data generating those parameters)
