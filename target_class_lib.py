@@ -960,7 +960,8 @@ def write_sample_for_deseq2_input(srs_labels, df_counts, data_directory, dataset
         exit()
 
     # Create the dataset directory if it doesn't already exist
-    os.makedirs(os.path.join(data_directory, 'datasets', dataset_name))
+    #os.makedirs(os.path.join(data_directory, 'datasets', dataset_name))
+    os.makedirs(os.path.join(data_directory, 'datasets', dataset_name), exist_ok=True)
 
     # Write the annotation file in the same format as the pasilla example
     with open(file=os.path.join(data_directory, 'datasets', dataset_name, 'annotation.csv'), mode='w') as f:
@@ -1005,7 +1006,8 @@ def write_all_data_for_deseq2_input(srs_labels, df_counts, data_directory, datas
         exit()
 
     # Create the dataset directory if it doesn't already exist
-    os.makedirs(os.path.join(data_directory, 'datasets', dataset_name))
+    #os.makedirs(os.path.join(data_directory, 'datasets', dataset_name))
+    os.makedirs(os.path.join(data_directory, 'datasets', dataset_name), exist_ok=True)
 
     # Write the annotation file in the same format as the pasilla example
     with open(file=os.path.join(data_directory, 'datasets', dataset_name, 'annotation.csv'), mode='w') as f:
@@ -1022,7 +1024,7 @@ def write_all_data_for_deseq2_input(srs_labels, df_counts, data_directory, datas
 
 
 # Create and plot PCA and tSNE analyses
-def plot_pca_and_tsne(transformation_name, data_directory, dataset_name, ntop=500, n_components_pca=10, alpha=1, dpi=300):
+def plot_pca_and_tsne(data_directory, dataset_name, transformation_name='variance-stabilizing', ntop=500, n_components_pca=10, alpha=1, dpi=300, y=None):
 
     # Sample call: plot_pca_and_tsne('/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data/assay_normal_transformation.csv', '/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data/coldata_normal_transformation.csv', 'normal', '/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data')
     
@@ -1047,8 +1049,13 @@ def plot_pca_and_tsne(transformation_name, data_directory, dataset_name, ntop=50
     X = df_assay.loc[top_genes,:].T # keep only the top genes and transpose in order to get the typical data matrix format with the samples in the rows
 
     # Determine the labels vector
-    df_coldata = pd.read_csv(coldata_csv_file).set_index('Unnamed: 0') # read in the column data, which includes the labels (in the 'condition' column)
-    y = df_coldata.loc[X.index,'condition'] # ensure the labels are ordered in the same way as the data and take just the 'condition' column as the label
+    if y is None:
+        df_coldata = pd.read_csv(coldata_csv_file).set_index('Unnamed: 0') # read in the column data, which includes the labels (in the 'condition' column)
+        y = df_coldata.loc[X.index,'condition'] # ensure the labels are ordered in the same way as the data and take just the 'condition' column as the label
+        fn_addendum = ''
+    else: # allow for a custom set of labels
+        y = y.loc[X.index]
+        fn_addendum = '_custom_label'
 
     # Order the samples by their labels
     sample_order = y.sort_values().index
@@ -1074,7 +1081,7 @@ def plot_pca_and_tsne(transformation_name, data_directory, dataset_name, ntop=50
     ax = sns.scatterplot(x=pca_res[:,0], y=pca_res[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=alpha, markers=marker_list, edgecolor='k')
     ax.legend(bbox_to_anchor=(1,1))
     ax.set_title('PCA - ' + transformation_name + ' transformation')
-    fig.savefig(os.path.join(data_dir, 'pca_' + transformation_name_filename + '_transformation.png'), dpi=dpi, bbox_inches='tight')
+    fig.savefig(os.path.join(data_dir, 'pca_' + transformation_name_filename + '_transformation' + fn_addendum + '.png'), dpi=dpi, bbox_inches='tight')
 
     # Perform tSNE analysis
     tsne = sk_manif.TSNE(n_components=2)
@@ -1085,4 +1092,14 @@ def plot_pca_and_tsne(transformation_name, data_directory, dataset_name, ntop=50
     ax = sns.scatterplot(x=tsne_res[:,0], y=tsne_res[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=alpha, markers=marker_list, edgecolor='k')
     ax.legend(bbox_to_anchor=(1,1))
     ax.set_title('tSNE - ' + transformation_name + ' transformation')
-    fig.savefig(os.path.join(data_dir, 'tsne_' + transformation_name_filename + '_transformation.png'), dpi=dpi, bbox_inches='tight')
+    fig.savefig(os.path.join(data_dir, 'tsne_' + transformation_name_filename + '_transformation' + fn_addendum + '.png'), dpi=dpi, bbox_inches='tight')
+
+
+# Run VST using DESeq2 on data exported from Python
+def run_deseq2(r_script_dir, dataset_name):
+    # run_deseq2(checkout_dir, 'all_data_label_2')
+    import subprocess, os
+    cmd_list = ['Rscript', '--vanilla', os.path.join(r_script_dir, 'run_vst.R'), dataset_name]
+    print('Now running command: ' + ' '.join(cmd_list))
+    list_files = subprocess.run(cmd_list)
+    print('The Rscript exit code was {}'.format(list_files.returncode))
