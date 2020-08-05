@@ -3,15 +3,14 @@
 
 # Process arguments
 args = commandArgs(trailingOnly=TRUE)
-#dataset_name <- "three_class_sample"
-#dataset_name <- "all_data"
-dataset_name <- args[1]
+dataset_name <- args[1] # e.g., label_1
+project_dir <- args[2] # e.g., /data/BIDS-HPC/private/projects/dmi2
 
 # Set variables and load libraries
-library_file <- "/data/BIDS-HPC/private/projects/dmi2/checkout/target_class_lib.R"
-cts_file <- paste0("/data/BIDS-HPC/private/projects/dmi2/data/datasets/", dataset_name, "/gene_counts.tsv")
-anno_file <- paste0("/data/BIDS-HPC/private/projects/dmi2/data/datasets/", dataset_name, "/annotation.csv")
-data_dir <- paste0("/data/BIDS-HPC/private/projects/dmi2/data/datasets/", dataset_name)
+library_file <- paste0(project_dir, "/checkout/target_class_lib.R")
+cts_file <- paste0(project_dir, "/data/datasets/", dataset_name, "/gene_counts.tsv")
+anno_file <- paste0(project_dir, "/data/datasets/", dataset_name, "/annotation.csv")
+data_dir <- paste0(project_dir, "/data/datasets/", dataset_name)
 library("DESeq2")
 source(library_file)
 

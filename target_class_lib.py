@@ -1098,19 +1098,19 @@ def plot_pca_and_tsne(data_directory, dataset_name, transformation_name='varianc
 
 
 # Run VST using DESeq2 on data exported from Python
-def run_deseq2(r_script_dir, dataset_name):
-    # run_deseq2(checkout_dir, 'all_data_label_2')
+def run_deseq2(dataset_name, project_directory):
+    # run_deseq2('all_data_label_2', project_directory)
     import subprocess, os
-    cmd_list = ['Rscript', '--vanilla', os.path.join(r_script_dir, 'run_vst.R'), dataset_name]
+    cmd_list = ['Rscript', '--vanilla', os.path.join(project_directory, 'checkout', 'run_vst.R'), dataset_name, project_directory]
     print('Now running command: ' + ' '.join(cmd_list))
     list_files = subprocess.run(cmd_list)
     print('The Rscript exit code was {}'.format(list_files.returncode))
 
 
 # This function will take the raw counts and their labels and return the data matrix X (dataframe) and labels vector y (series) with the samples in label order and the genes in top-variance order by running the VST using DESeq2, saving all intermediate files
-def run_vst(counts_dataframe, labels_series, dataset_name, data_dir, checkout_dir):
+def run_vst(counts_dataframe, labels_series, project_directory):
 
-    # Sample call: X, y = run_vst(df_counts, df_samples['label 1'], 'all_data', data_directory, checkout_dir)
+    # Sample call: X, y = run_vst(df_counts, df_samples['label 1'], project_directory)
 
     # Import relevant libraries
     import pandas as pd
@@ -1121,6 +1121,8 @@ def run_vst(counts_dataframe, labels_series, dataset_name, data_dir, checkout_di
     transformation_name = 'variance-stabilizing'
 
     # Variables
+    dataset_name = labels_series.name.lower().replace(' ','_').replace('-','_')
+    data_dir = os.path.join(project_directory, 'data')
     transformation_name_filename = transformation_name.lower().replace(' ','_').replace('-','_') # get a version of the transformation_name suitable for filenames
     data_dir2 = os.path.join(data_dir, 'datasets', dataset_name)
     assay_csv_file = os.path.join(data_dir2, 'assay_' + transformation_name_filename + '_transformation.csv') # '/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data/assay_variance_stabilizing_transformation.csv'
@@ -1134,7 +1136,7 @@ def run_vst(counts_dataframe, labels_series, dataset_name, data_dir, checkout_di
 
         # Run VST using DESeq2 on the dataset exported from Python above
         # Note this will write (at least) the files assay_csv_file and coldata_csv_file defined above
-        run_deseq2(checkout_dir, dataset_name)
+        run_deseq2(dataset_name, project_directory)
 
         # Determine the data matrix
         df_assay = pd.read_csv(assay_csv_file).set_index('Unnamed: 0') # read in the transformed data
