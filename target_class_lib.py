@@ -978,7 +978,7 @@ def write_sample_for_deseq2_input(srs_labels, df_counts, data_directory, dataset
 
 
 # Write all the data for input into DESeq2, instead of just a sample
-def write_all_data_for_deseq2_input(srs_labels, df_counts, data_directory, dataset_name):
+def write_all_data_for_deseq2_input(srs_labels, df_counts, data_directory, dataset_name, drop_zero_genes=False):
 
     # Sample call: write_all_data_for_deseq2_input(df_samples['label 1'], df_counts, data_directory, 'all_data')
 
@@ -998,7 +998,8 @@ def write_all_data_for_deseq2_input(srs_labels, df_counts, data_directory, datas
     counts_to_use = df_counts.loc[all_samples_to_use,:].transpose()
 
     # Delete rows of counts that are all zeros
-    counts_to_use = counts_to_use[(counts_to_use!=0).any(axis=1)]
+    if drop_zero_genes:
+        counts_to_use = counts_to_use[(counts_to_use!=0).any(axis=1)]
 
     # Check that the indexes of the counts and labels that we're going to write out are the same    
     if not counts_to_use.columns.equals(labels_to_use.index):
