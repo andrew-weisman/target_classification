@@ -1024,7 +1024,7 @@ def write_all_data_for_deseq2_input(srs_labels, df_counts, data_directory, datas
 
 
 # Create and plot PCA and tSNE analyses
-def plot_pca_and_tsne(data_directory, dataset_name, transformation_name='variance-stabilizing', ntop=500, n_components_pca=10, alpha=1, dpi=300, y=None):
+def plot_pca_and_tsne(data_directory, dataset_name, transformation_name='variance-stabilizing', ntop=500, n_components_pca=10, alpha=1, dpi=300, y=None, save_figure=False):
 
     # Sample call: plot_pca_and_tsne('/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data/assay_normal_transformation.csv', '/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data/coldata_normal_transformation.csv', 'normal', '/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data')
     
@@ -1081,7 +1081,8 @@ def plot_pca_and_tsne(data_directory, dataset_name, transformation_name='varianc
     ax = sns.scatterplot(x=pca_res[:,0], y=pca_res[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=alpha, markers=marker_list, edgecolor='k')
     ax.legend(bbox_to_anchor=(1,1))
     ax.set_title('PCA - ' + transformation_name + ' transformation')
-    fig.savefig(os.path.join(data_dir, 'pca_' + transformation_name_filename + '_transformation' + fn_addendum + '.png'), dpi=dpi, bbox_inches='tight')
+    if save_figure:
+        fig.savefig(os.path.join(data_dir, 'pca_' + transformation_name_filename + '_transformation' + fn_addendum + '.png'), dpi=dpi, bbox_inches='tight')
 
     # Perform tSNE analysis
     tsne = sk_manif.TSNE(n_components=2)
@@ -1092,7 +1093,8 @@ def plot_pca_and_tsne(data_directory, dataset_name, transformation_name='varianc
     ax = sns.scatterplot(x=tsne_res[:,0], y=tsne_res[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=alpha, markers=marker_list, edgecolor='k')
     ax.legend(bbox_to_anchor=(1,1))
     ax.set_title('tSNE - ' + transformation_name + ' transformation')
-    fig.savefig(os.path.join(data_dir, 'tsne_' + transformation_name_filename + '_transformation' + fn_addendum + '.png'), dpi=dpi, bbox_inches='tight')
+    if save_figure:
+        fig.savefig(os.path.join(data_dir, 'tsne_' + transformation_name_filename + '_transformation' + fn_addendum + '.png'), dpi=dpi, bbox_inches='tight')
 
 
 # Run VST using DESeq2 on data exported from Python
@@ -1103,3 +1105,105 @@ def run_deseq2(r_script_dir, dataset_name):
     print('Now running command: ' + ' '.join(cmd_list))
     list_files = subprocess.run(cmd_list)
     print('The Rscript exit code was {}'.format(list_files.returncode))
+
+
+# This function will take the raw counts and their labels and return the data matrix X (dataframe) and labels vector y (series) with the samples in label order and the genes in top-variance order by running the VST using DESeq2, saving all intermediate files
+def run_vst(counts_dataframe, labels_series, dataset_name, data_dir, checkout_dir):
+
+    # Sample call: X, y = run_vst(df_counts, df_samples['label 1'], 'all_data', data_directory, checkout_dir)
+
+    # Import relevant libraries
+    import pandas as pd
+    import os
+    tci = get_tci_library()
+
+    # Constant (basically)
+    transformation_name = 'variance-stabilizing'
+
+    # Variables
+    transformation_name_filename = transformation_name.lower().replace(' ','_').replace('-','_') # get a version of the transformation_name suitable for filenames
+    data_dir2 = os.path.join(data_dir, 'datasets', dataset_name)
+    assay_csv_file = os.path.join(data_dir2, 'assay_' + transformation_name_filename + '_transformation.csv') # '/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data/assay_variance_stabilizing_transformation.csv'
+    coldata_csv_file = os.path.join(data_dir2, 'coldata_' + transformation_name_filename + '_transformation.csv') # '/data/BIDS-HPC/private/projects/dmi2/data/datasets/all_data/coldata_variance_stabilizing_transformation.csv'
+
+    # If the datafile does not already exist...
+    if not os.path.exists(os.path.join(data_dir2, 'vst_transformed_data.pkl')):
+
+        # Write all the data for input into DESeq2
+        write_all_data_for_deseq2_input(labels_series, counts_dataframe, data_dir, dataset_name)
+
+        # Run VST using DESeq2 on the dataset exported from Python above
+        # Note this will write (at least) the files assay_csv_file and coldata_csv_file defined above
+        run_deseq2(checkout_dir, dataset_name)
+
+        # Determine the data matrix
+        df_assay = pd.read_csv(assay_csv_file).set_index('Unnamed: 0') # read in the transformed data
+        top_variance_order = df_assay.var(axis=1).sort_values(axis=0, ascending=False).index # get the indexes of the genes in top-variance order
+        X = df_assay.loc[top_variance_order,:].T # order the genes by top variance and transpose in order to get the typical data matrix format with the samples in the rows
+
+        # Determine the labels vector
+        df_coldata = pd.read_csv(coldata_csv_file).set_index('Unnamed: 0') # read in the column data, which includes the labels (in the 'condition' column)
+        y = df_coldata.loc[X.index,'condition'] # ensure the labels are ordered in the same way as the data and take just the 'condition' column as the label
+
+        # Order the samples by their labels
+        sample_order = y.sort_values().index
+        y = y.loc[sample_order]
+        X = X.loc[sample_order,:]
+
+        # This should be a trivial check
+        if not y.index.equals(X.index):
+            print('ERROR: Weirdly inconsistent ordering')
+            exit()
+
+        # Save the data to disk
+        tci.make_pickle([X, y], data_dir2, 'vst_transformed_data.pkl')
+
+    # Otherwise, read it in
+    else:
+        [X, y] = tci.load_pickle(data_dir2, 'vst_transformed_data.pkl')
+
+    # Return the data matrix (dataframe) and labels vector (series)
+    return(X, y)
+
+
+# Plot a PCA or tSNE analysis
+def plot_unsupervised_analysis(results, y, figsize=(12,7.5), alpha=1):
+
+    # Sample calls:
+    #
+    #   # Perform PCA
+    #   import sklearn.decomposition as sk_decomp
+    #   pca = sk_decomp.PCA(n_components=10)
+    #   pca_res = pca.fit_transform(X.iloc[:,:500])
+    #   print('Top {} PCA explained variance ratios: {}'.format(10, pca.explained_variance_ratio_))
+    #   ax = tc.plot_unsupervised_analysis(pca_res, y)
+    #   ax.set_title('PCA - variance-stabilizing transformation')
+    #
+    #   # Perform tSNE analysis
+    #   import sklearn.manifold as sk_manif
+    #   tsne = sk_manif.TSNE(n_components=2)
+    #   tsne_res = tsne.fit_transform(X.iloc[:,:500])
+    #   ax = tc.plot_unsupervised_analysis(tsne_res, y)
+    #   ax.set_title('tSNE - variance-stabilizing transformation')
+    #
+    
+    # Import relevant libraries
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import matplotlib.lines as mpl_lines
+
+    # Get a reasonable set of markers and color palette
+    markers = mpl_lines.Line2D.filled_markers
+    nclasses = len(set(y))
+    marker_list = markers * int(nclasses/len(markers)+1)
+    color_palette = sns.color_palette("hls", nclasses)
+
+    # Plot results
+    #fig = plt.figure(figsize=figsize)
+    plt.figure(figsize=figsize)
+    ax = sns.scatterplot(x=results[:,0], y=results[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=alpha, markers=marker_list, edgecolor='k')
+    ax.legend(bbox_to_anchor=(1,1))
+    # if save_figure:
+    #     fig.savefig(os.path.join(data_dir, 'pca_or_tsne_' + transformation_name_filename + '_transformation' + fn_addendum + '.png'), dpi=300, bbox_inches='tight')
+
+    return(ax)
