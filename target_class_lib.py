@@ -1170,7 +1170,7 @@ def run_vst(counts_dataframe, labels_series, project_directory):
 
 
 # Plot a PCA or tSNE analysis
-def plot_unsupervised_analysis(results, y, figsize=(12,7.5), alpha=1):
+def plot_unsupervised_analysis(results, y, figsize=(12,7.5), alpha=1, gray_indexes=None):
 
     # Sample calls:
     #
@@ -1206,6 +1206,10 @@ def plot_unsupervised_analysis(results, y, figsize=(12,7.5), alpha=1):
     plt.figure(figsize=figsize)
     ax = sns.scatterplot(x=results[:,0], y=results[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=alpha, markers=marker_list, edgecolor='k')
     ax.legend(bbox_to_anchor=(1,1))
+
+    if gray_indexes is not None:
+        ax = sns.scatterplot(x=results[gray_indexes,0], y=results[gray_indexes,1], hue='gray', style=y.iloc[gray_indexes], palette=color_palette, markers=marker_list, edgecolor='k', ax=ax)
+
     # if save_figure:
     #     fig.savefig(os.path.join(data_dir, 'pca_or_tsne_' + transformation_name_filename + '_transformation' + fn_addendum + '.png'), dpi=300, bbox_inches='tight')
 
