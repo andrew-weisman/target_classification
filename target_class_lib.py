@@ -1189,7 +1189,7 @@ def plot_unsupervised_analysis(results, y, figsize=(12,7.5), alpha=1, gray_index
     #   ax = tc.plot_unsupervised_analysis(tsne_res, y)
     #   ax.set_title('tSNE - variance-stabilizing transformation')
     #
-    
+
     # Import relevant libraries
     import seaborn as sns
     import matplotlib.pyplot as plt
@@ -1202,15 +1202,59 @@ def plot_unsupervised_analysis(results, y, figsize=(12,7.5), alpha=1, gray_index
     color_palette = sns.color_palette("hls", nclasses)
 
     # Plot results
-    #fig = plt.figure(figsize=figsize)
     plt.figure(figsize=figsize)
-    ax = sns.scatterplot(x=results[:,0], y=results[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=alpha, markers=marker_list, edgecolor='k')
-    ax.legend(bbox_to_anchor=(1,1))
+    #ax = sns.scatterplot(x=results[:,0], y=results[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=alpha, markers=marker_list, edgecolor='k')
+    ax = sns.scatterplot(x=results[:,0], y=results[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=(0.2 if gray_indexes is not None else alpha), markers=marker_list, edgecolor='k')
 
     if gray_indexes is not None:
-        ax = sns.scatterplot(x=results[gray_indexes,0], y=results[gray_indexes,1], hue='gray', style=y.iloc[gray_indexes], palette=color_palette, markers=marker_list, edgecolor='k', ax=ax)
+        import collections
+        gray_indexes=list(collections.OrderedDict.fromkeys(gray_indexes.to_list()))
+        #ax = sns.scatterplot(x=results[gray_indexes,0], y=results[gray_indexes,1], hue='gray', style=y.iloc[gray_indexes], palette=color_palette, markers=marker_list, edgecolor='k', ax=ax)
+        ax = sns.scatterplot(x=results[gray_indexes,0], y=results[gray_indexes,1], color='gray', style=y.iloc[gray_indexes], palette=color_palette, markers=marker_list, edgecolor='k', ax=ax, alpha=1, legend="full")
+
+    ax.legend(bbox_to_anchor=(1,1))
 
     # if save_figure:
     #     fig.savefig(os.path.join(data_dir, 'pca_or_tsne_' + transformation_name_filename + '_transformation' + fn_addendum + '.png'), dpi=300, bbox_inches='tight')
 
     return(ax)
+
+
+# Sample with replacement each label-group of the potentially unbalanced inputted data matrix and corresponding labels
+# Return the corresponding balanced data matrix and corresponding labels, along with the numerical indexes that could be used to obtain these
+def sample_populations(X2, y2, n=10):
+
+    # Ensure the indexes of the input matrix and array match
+    if not y2.index.equals(X2.index):
+        print('ERROR: Indexes of input X and y do not match')
+        exit()
+
+    # Initialize the data matrix
+    X = X2.copy()
+
+    # Add the column of labels to the data matrix
+    X['label'] = y2.copy()
+
+    # Also add a column of the numerical indexes corresponding to the samples in X2 and y2
+    X['index2'] = range(len(X))
+
+    # Check that we did what we think we did
+    if (not (X.iloc[:,-2] == y2).all()) or (not (X.iloc[:,:-2] == X2).all().all()):
+        print('ERROR: We didn\'t correctly place the data and label matrices inside the combined data matrix')
+        exit()
+
+    # Sample with replacement each group (unique label) within the combined data matrix
+    X = X.groupby('label').sample(n=n, replace=True)
+
+    # Save the sampled labels and numerical indexes and drop those columns from the combined data matrix
+    y = X['label']
+    num_indexes = X['index2']
+    X = X.drop(['label', 'index2'], axis='columns')
+
+    # Ensure that all we really need is num_indexes
+    if (not (y2.iloc[num_indexes] == y).all()) or (not (X2.iloc[num_indexes,:] == X).all().all()):
+        print('ERROR: We cannot reproduce the results from num_indexes alone, as we should be able')
+        exit()
+
+    # Return the balanced data and labels and reproducing numerical indexes
+    return(X, y, num_indexes)
