@@ -448,13 +448,14 @@ def remove_bad_samples(df_samples, nstd=2):
     # "Constants" based on viewing the first set of histograms above so that we can figure out which ones to use to filter the data
     columns = ['average base quality', 'proportion_base_mismatch', 'proportion_reads_mapped']
     higher_is_better = [True, False, True]
-    sp_locs = [(0,0), (1,1), (2,1)]
+    #sp_locs = [(0,0), (1,1), (2,1)]
 
     # Start off filtering none of the data
     valid_ind = np.full((len(df_samples),), True)
 
     # For each plot containing data we'd like to use to filter our samples...
-    for col, hib, sp_loc in zip(columns, higher_is_better, sp_locs):
+    #for col, hib, sp_loc in zip(columns, higher_is_better, sp_locs):
+    for col, hib in zip(columns, higher_is_better):
 
         # Determine +1 or -1 depending on whether higher is better (if higher is better, use -1)
         sign = -2*int(hib) + 1
@@ -466,7 +467,10 @@ def remove_bad_samples(df_samples, nstd=2):
         cutoff = vals.mean() + sign*nstd*vals.std()
 
         # Determine the current axis in the overall histogram plot
-        ax = ax_hist[sp_loc]
+        #ax = ax_hist[sp_loc]
+        for ax in ax_hist.flatten():
+            if ax.title.get_text() == col:
+                break
 
         # Determine the y limits of that plot
         ylim = ax.get_ylim()
@@ -1170,7 +1174,7 @@ def run_vst(counts_dataframe, labels_series, project_directory):
 
 
 # Plot a PCA or tSNE analysis
-def plot_unsupervised_analysis(results, y, figsize=(12,7.5), alpha=1, gray_indexes=None):
+def plot_unsupervised_analysis(results, y, figsize=(12,7.5), alpha=1, gray_indexes=None, ax=None, legend='full'):
 
     # Sample calls:
     #
@@ -1202,17 +1206,19 @@ def plot_unsupervised_analysis(results, y, figsize=(12,7.5), alpha=1, gray_index
     color_palette = sns.color_palette("hls", nclasses)
 
     # Plot results
-    plt.figure(figsize=figsize)
+    if ax is None:
+        _, ax = plt.subplots(figsize=figsize)
     #ax = sns.scatterplot(x=results[:,0], y=results[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=alpha, markers=marker_list, edgecolor='k')
-    ax = sns.scatterplot(x=results[:,0], y=results[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=(0.2 if gray_indexes is not None else alpha), markers=marker_list, edgecolor='k')
+    ax = sns.scatterplot(x=results[:,0], y=results[:,1], hue=y, style=y, palette=color_palette, legend=legend, alpha=(0.2 if gray_indexes is not None else alpha), markers=marker_list, edgecolor='k', ax=ax)
 
     if gray_indexes is not None:
         import collections
         gray_indexes=list(collections.OrderedDict.fromkeys(gray_indexes.to_list()))
         #ax = sns.scatterplot(x=results[gray_indexes,0], y=results[gray_indexes,1], hue='gray', style=y.iloc[gray_indexes], palette=color_palette, markers=marker_list, edgecolor='k', ax=ax)
-        ax = sns.scatterplot(x=results[gray_indexes,0], y=results[gray_indexes,1], color='gray', style=y.iloc[gray_indexes], palette=color_palette, markers=marker_list, edgecolor='k', ax=ax, alpha=1, legend="full")
+        ax = sns.scatterplot(x=results[gray_indexes,0], y=results[gray_indexes,1], color='gray', style=y.iloc[gray_indexes], palette=color_palette, markers=marker_list, edgecolor='k', ax=ax, alpha=1, legend=legend)
 
-    ax.legend(bbox_to_anchor=(1,1))
+    if legend is not False:
+        ax.legend(bbox_to_anchor=(1,1))
 
     # if save_figure:
     #     fig.savefig(os.path.join(data_dir, 'pca_or_tsne_' + transformation_name_filename + '_transformation' + fn_addendum + '.png'), dpi=300, bbox_inches='tight')
@@ -1258,3 +1264,86 @@ def sample_populations(X2, y2, n=10):
 
     # Return the balanced data and labels and reproducing numerical indexes
     return(X, y, num_indexes)
+
+
+# Create a figure helping to explore the extent of sampling each unique label in the dataset (i.e., each group)
+def explore_sample_size(X, y, tsne_res, n_range=range(100,601,200)):
+
+    # Import relevant library
+    import matplotlib.pyplot as plt
+
+    # Constant
+    base_figsize = (16,5) # this is the size of an entire two-image row
+    
+    # Get the list of possible values of n from its inputted range
+    n_values = [x for x in n_range]
+    nn = len(n_values)
+
+    # Initialize the figure
+    fig, axs = plt.subplots(nrows=nn, ncols=2, figsize=(base_figsize[0], base_figsize[1]*nn), squeeze=False)
+
+    # For each sampling size...
+    for n_ind, n in enumerate(n_values):
+
+        # Sample the imbalanced dataset
+        _, _, num_indexes = sample_populations(X, y, n=n)
+
+        # Plot the sampling results themselves
+        ax = plot_unsupervised_analysis(tsne_res[num_indexes,:], y.iloc[num_indexes], alpha=0.5, ax=axs[n_ind,0], legend=False) # note y = y2.iloc[num_indexes]
+        ax.set_title('tSNE - VST - n={} - sample'.format(n))
+
+        # Now plot the sampling results on top of the tSNE of the full dataset in order to see how much we covered
+        ax = plot_unsupervised_analysis(tsne_res, y, gray_indexes=num_indexes, ax=axs[n_ind,1])
+        ax.set_title('tSNE - VST - n={} - sample in gray on top of original'.format(n))
+
+    return(fig)
+
+
+# Calculate the data for a study of how the accuracy on the entire dataset (which is our test set) depends on the bootstrap sampling size from each group in the the entire dataset (yes, the test set!)
+# This is sort of what we're forced to do given the small size of the minority classes, though we see the accuracy is still so good that we can probably do a "real" study (i.e., with a training and test set)
+def calculate_whole_dataset_accuracy_vs_bootstrap_sampling_size(X, y, project_directory, possible_n=None, ntrials=10):
+
+    # Import relevant modules
+    import numpy as np
+    import sklearn.ensemble as sk_ens
+    import os
+    tci = get_tci_library()
+
+    # Constant
+    datadir = os.path.join(project_directory, 'data')
+
+    # Set the possible sampling sizes to a reasonable default if it's not specified in the function call
+    if possible_n is None:
+        possible_n = [x for x in range(1,13)] + [x for x in range(15,46,5)] + [x for x in range(50,101,10)]
+    n_sample_sizes = len(possible_n)
+
+    # Initialize the accuracy-holder array
+    accuracies = np.zeros((ntrials, n_sample_sizes))
+
+    # If the datafile does not already exist...
+    if not os.path.exists(os.path.join(datadir, 'accuracy_vs_sampling_size.pkl')):
+
+        # For each sampling size, for each trial...
+        for itrial in range(ntrials):
+            print('On trial {} of {}...'.format(itrial+1, ntrials))
+            for iin, n in enumerate(possible_n):
+                print('  On sample size {} of {} (n={})...'.format(iin+1, n_sample_sizes, n))
+
+                # Sample the input dataset using the current sampling size n
+                X_bal, y_bal, _ = sample_populations(X, y, n=n)
+
+                # Fit a random forest classifier to the sampled, balanced dataset
+                clf = sk_ens.RandomForestClassifier()
+                clf.fit(X_bal, y_bal)
+
+                # Test the fitted model on the full, input dataset
+                accuracies[itrial, iin] = clf.score(X, y)
+
+        # Save the data to disk
+        tci.make_pickle([accuracies, possible_n], datadir, 'accuracy_vs_sampling_size.pkl')
+
+    # Otherwise, read it in
+    else:
+        [accuracies, possible_n] = tci.load_pickle(datadir, 'accuracy_vs_sampling_size.pkl')
+
+    return(accuracies, possible_n)
