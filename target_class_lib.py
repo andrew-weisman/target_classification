@@ -1335,6 +1335,11 @@ def calculate_whole_dataset_accuracy_vs_bootstrap_sampling_size(X, y, project_di
                 # Sample the input dataset using the current sampling size n
                 X_bal, y_bal, _ = sample_populations(X, y, n=n)
 
+                # Check feature equality
+                if not X.columns.equals(X_bal.columns):
+                    print('ERROR: Imbalanced and balanced features are not the same')
+                    exit()
+
                 # Fit a random forest classifier to the sampled, balanced dataset
                 clf = sk_ens.RandomForestClassifier()
                 clf.fit(X_bal, y_bal)
@@ -1343,7 +1348,8 @@ def calculate_whole_dataset_accuracy_vs_bootstrap_sampling_size(X, y, project_di
                 accuracies[itrial, iin] = clf.score(X, y)
 
                 # Save all other data
-                rnd_clf_holder_inside.append([itrial, iin, n, X_bal, y_bal, clf])
+                #rnd_clf_holder_inside.append([itrial, iin, n, X_bal, y_bal, clf.feature_importances_, clf.predict_proba(X), clf.n_features_])
+                rnd_clf_holder_inside.append([itrial, iin, n, y_bal, clf])
 
             rnd_clf_holder.append(rnd_clf_holder_inside)
 
