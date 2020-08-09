@@ -1319,6 +1319,7 @@ def calculate_whole_dataset_accuracy_vs_bootstrap_sampling_size(X, y, project_di
 
     # Initialize the accuracy-holder array
     accuracies = np.zeros((ntrials, n_sample_sizes))
+    rnd_clf_holder = []
 
     # If the datafile does not already exist...
     if not os.path.exists(os.path.join(datadir, 'accuracy_vs_sampling_size.pkl')):
@@ -1326,6 +1327,8 @@ def calculate_whole_dataset_accuracy_vs_bootstrap_sampling_size(X, y, project_di
         # For each sampling size, for each trial...
         for itrial in range(ntrials):
             print('On trial {} of {}...'.format(itrial+1, ntrials))
+
+            rnd_clf_holder_inside = []
             for iin, n in enumerate(possible_n):
                 print('  On sample size {} of {} (n={})...'.format(iin+1, n_sample_sizes, n))
 
@@ -1339,11 +1342,16 @@ def calculate_whole_dataset_accuracy_vs_bootstrap_sampling_size(X, y, project_di
                 # Test the fitted model on the full, input dataset
                 accuracies[itrial, iin] = clf.score(X, y)
 
+                # Save all other data
+                rnd_clf_holder_inside.append([itrial, iin, n, X_bal, y_bal, clf])
+
+            rnd_clf_holder.append(rnd_clf_holder_inside)
+
         # Save the data to disk
-        tci.make_pickle([accuracies, possible_n], datadir, 'accuracy_vs_sampling_size.pkl')
+        tci.make_pickle([accuracies, possible_n, rnd_clf_holder], datadir, 'accuracy_vs_sampling_size.pkl')
 
     # Otherwise, read it in
     else:
-        [accuracies, possible_n] = tci.load_pickle(datadir, 'accuracy_vs_sampling_size.pkl')
+        [accuracies, possible_n, rnd_clf_holder] = tci.load_pickle(datadir, 'accuracy_vs_sampling_size.pkl')
 
-    return(accuracies, possible_n)
+    return(accuracies, possible_n, rnd_clf_holder)
