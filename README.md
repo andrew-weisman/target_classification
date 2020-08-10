@@ -1,6 +1,4 @@
-# TARGET classification (using the GDC Data Portal)
-
-## Workflow
+# TARGET classification workflow (using the GDC Data Portal)
 
 Set up the directory structure:
 
@@ -52,14 +50,4 @@ for file in $(ls | grep -v MANIFEST.txt); do echo $file | awk -v FS="." '{print 
 
 shows that, ostensibly, there are 2,481 unique expression files (independent of normalization).
 
-Go through the `Main` section in the Python Jupyter notebook `/data/BIDS-HPC/private/projects/dmi2/checkout/main.ipynb`.
-
-## Next up
-
-* Save the parameters and ensure I can reproduce the transformed values from the saved parameters (and ensure I save/note the data generating those parameters)
-* Complete whole data normalization workflow (both unsupervised and supervised) with the sample data
-* Run the workflow on the full dataset
-* Pick up with running PCA and TSNE in the unsupervised functions to learn how to best divide up the labels in the data, probably using all data with enough replicates for this task and then combining labels and iterating and then generate the parameters using the final set of data and combined labels (i.e. design)
-  * Start with the caret package?
-  * Ensure I can reproduce DESeq2's PCA plots and then run TSNE the same way
-  * Save all plots at all steps and perhaps even automate this task?
+Go through the Python Jupyter notebook `/data/BIDS-HPC/private/projects/dmi2/checkout/main.ipynb`.
