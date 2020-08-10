@@ -1299,7 +1299,7 @@ def explore_sample_size(X, y, tsne_res, n_range=range(100,601,200)):
     return(fig)
 
 
-# Run some supervised random forest classification models on the data, saving the results and calculating the accuracies of the models on the entire input dataset (i.e., our test set, which includes the training data, which is obtained by bootstrap sampling within the classes)
+# Run some random forest classification models on the data, saving the results and calculating the accuracies of the models on the entire input dataset (i.e., our test set, which includes the training data, which is obtained by bootstrap sampling within the classes)
 # This bootstrap sampling from each class is sort of what we're forced to do given the small size of the minority classes, though we see the accuracy is still so good that we can probably do a "real" study (i.e., with a training and test set)
 #def calculate_whole_dataset_accuracy_vs_bootstrap_sampling_size(X, y, project_directory, possible_n=None, ntrials=10):
 def generate_random_forest_models(X, y, project_directory, study_name, possible_n=None, ntrials=10):
@@ -1362,3 +1362,52 @@ def generate_random_forest_models(X, y, project_directory, study_name, possible_
         [accuracies, possible_n, rnd_clf_holder] = tci.load_pickle(datadir, study_name+'.pkl')
 
     return(accuracies, possible_n, rnd_clf_holder)
+
+
+# Plot the mean accuracy vs. the sampling sizes with error bars indicating the minimum and maximum accuracies over all the trials
+def plot_accuracy_vs_sample_size(accuracies, possible_n, study_name):
+
+    # Import relevant libraries
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # Calculate the average accuracy over all the trials
+    means = accuracies.mean(axis=0)
+
+    # Plot the mean accuracy vs. the sampling sizes with error bars indicating the minimum and maximum accuracies over all the trials
+    _, ax = plt.subplots(figsize=(10,6))
+    _ = ax.errorbar(x=possible_n, y=means, yerr=np.row_stack((means-accuracies.min(axis=0), accuracies.max(axis=0)-means)), fmt='*-', ecolor='red', capsize=4)
+    ax.grid(True)
+    ax.set_xlabel('Sample size for each class')
+    ax.set_ylabel('Accuracy')
+    ax.set_title('Overall accuracy on input dataset - ' + study_name)
+
+
+# Determine the genes in decreasing order of average feature importance
+def calculate_average_feature_importance(feature_names, rnd_clf_holder, num_last_sample_sizes=10):
+
+    # Sample call: calculate_average_feature_importance(X2.columns, rnd_clf_holder)
+
+    # Import relevant libraries
+    import numpy as np
+    import pandas as pd
+    
+    # Get the big numpy array of feature importances
+    importances = np.zeros((len(feature_names), len(rnd_clf_holder), len(rnd_clf_holder[0])))
+    for itrial, rnd_clf_holder_inside in enumerate(rnd_clf_holder): # ntrials of these
+        for isample_size, model_data in enumerate(rnd_clf_holder_inside): # len(possible_n) of these; model_data is [itrial, iin, n, y_bal, clf]
+            importances[:,itrial,isample_size] = model_data[4].feature_importances_
+
+    # Save the full importances holder
+    importances_full = importances.copy()
+
+    # Average over the trials and the last num_last_sample_sizes sample sizes
+    importances = importances[:,:,-num_last_sample_sizes:].mean(axis=(1,2))
+
+    # Sort the importances in decreasing order
+    order = (-importances).argsort(axis=0)
+
+    # Create a Pandas series of the average importances with the corresponding gene names as indexes in descending order, removing the version numbers from the Ensembl gene IDs
+    important_genes = pd.Series(data=importances[order], index=[x.split('.')[0] for x in feature_names[order]], name='score')
+
+    return(important_genes, importances_full)
