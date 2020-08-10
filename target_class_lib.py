@@ -1299,9 +1299,10 @@ def explore_sample_size(X, y, tsne_res, n_range=range(100,601,200)):
     return(fig)
 
 
-# Calculate the data for a study of how the accuracy on the entire dataset (which is our test set) depends on the bootstrap sampling size from each group in the the entire dataset (yes, the test set!)
-# This is sort of what we're forced to do given the small size of the minority classes, though we see the accuracy is still so good that we can probably do a "real" study (i.e., with a training and test set)
-def calculate_whole_dataset_accuracy_vs_bootstrap_sampling_size(X, y, project_directory, possible_n=None, ntrials=10):
+# Run some supervised random forest classification models on the data, saving the results and calculating the accuracies of the models on the entire input dataset (i.e., our test set, which includes the training data, which is obtained by bootstrap sampling within the classes)
+# This bootstrap sampling from each class is sort of what we're forced to do given the small size of the minority classes, though we see the accuracy is still so good that we can probably do a "real" study (i.e., with a training and test set)
+#def calculate_whole_dataset_accuracy_vs_bootstrap_sampling_size(X, y, project_directory, possible_n=None, ntrials=10):
+def generate_random_forest_models(X, y, project_directory, study_name, possible_n=None, ntrials=10):
 
     # Import relevant modules
     import numpy as np
@@ -1322,7 +1323,7 @@ def calculate_whole_dataset_accuracy_vs_bootstrap_sampling_size(X, y, project_di
     rnd_clf_holder = []
 
     # If the datafile does not already exist...
-    if not os.path.exists(os.path.join(datadir, 'accuracy_vs_sampling_size.pkl')):
+    if not os.path.exists(os.path.join(datadir, study_name+'.pkl')):
 
         # For each sampling size, for each trial...
         for itrial in range(ntrials):
@@ -1354,10 +1355,10 @@ def calculate_whole_dataset_accuracy_vs_bootstrap_sampling_size(X, y, project_di
             rnd_clf_holder.append(rnd_clf_holder_inside)
 
         # Save the data to disk
-        tci.make_pickle([accuracies, possible_n, rnd_clf_holder], datadir, 'accuracy_vs_sampling_size.pkl')
+        tci.make_pickle([accuracies, possible_n, rnd_clf_holder], datadir, study_name+'.pkl')
 
     # Otherwise, read it in
     else:
-        [accuracies, possible_n, rnd_clf_holder] = tci.load_pickle(datadir, 'accuracy_vs_sampling_size.pkl')
+        [accuracies, possible_n, rnd_clf_holder] = tci.load_pickle(datadir, study_name+'.pkl')
 
     return(accuracies, possible_n, rnd_clf_holder)
