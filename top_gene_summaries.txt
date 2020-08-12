@@ -1,0 +1,124 @@
+https://www.ncbi.nlm.nih.gov/gene
+
+
+All data:
+
+UNC homeobox (ENSG00000164853)    0.000953
+This gene encodes a homeobox transcription factor that is involved in somitogenesis and neurogenesis and is required for the maintenance and differentiation of specific elements of the axial skeleton. This gene also plays a role in controlling the development of connections of hypothalamic neurons to pituitary elements, allowing central neurons to reach the peripheral blood circulation and deliver hormones that control peripheral functions. The expression of this gene is associated with an increased frequency of acute myeloid leukemia. [provided by RefSeq, Jul 2017]
+
+WASP family member 3 (ENSG00000132970)    0.000903
+This gene encodes a member of the Wiskott-Aldrich syndrome protein family. The gene product is a protein that forms a multiprotein complex that links receptor kinases and actin. Binding to actin occurs through a C-terminal verprolin homology domain in all family members. The multiprotein complex serves to tranduce signals that involve changes in cell shape, motility or function. A pseudogene of this gene have been defined on chromosome 6. Alternative splicing results in multiple transcript variants [provided by RefSeq, May 2014]
+
+matrix metallopeptidase 13 (ENSG00000137745)    0.000896
+This gene encodes a member of the peptidase M10 family of matrix metalloproteinases (MMPs). Proteins in this family are involved in the breakdown of extracellular matrix in normal physiological processes, such as embryonic development, reproduction, and tissue remodeling, as well as in disease processes, such as arthritis and metastasis. The encoded preproprotein is proteolytically processed to generate the mature protease. This protease cleaves type II collagen more efficiently than types I and III. It may be involved in articular cartilage turnover and cartilage pathophysiology associated with osteoarthritis. Mutations in this gene are associated with metaphyseal anadysplasia. This gene is part of a cluster of MMP genes on chromosome 11. [provided by RefSeq, Jan 2016]
+
+MyoD family inhibitor (ENSG00000112559)    0.000874
+This protein is a transcription factor that negatively regulates other myogenic family proteins. Studies of the mouse homolog, I-mf, show that it interferes with myogenic factor function by masking nuclear localization signals and preventing DNA binding. Knockout mouse studies show defects in the formation of vertebrae and ribs that also involve cartilage formation in these structures. [provided by RefSeq, Jul 2008]
+
+DENN domain containing 11 (ENSG00000257093)    0.000806
+
+small integral membrane protein 2 (ENSG00000139656)    0.000805
+
+ENSG00000226519    0.000776 --> not found
+
+SWI/SNF related, matrix associated, actin dependent regulator of chromatin, subfamily b, member 1 (ENSG00000099956)    0.000766
+The protein encoded by this gene is part of a complex that relieves repressive chromatin structures, allowing the transcriptional machinery to access its targets more effectively. The encoded nuclear protein may also bind to and enhance the DNA joining activity of HIV-1 integrase. This gene has been found to be a tumor suppressor, and mutations in it have been associated with malignant rhabdoid tumors. Alternatively spliced transcript variants have been found for this gene. [provided by RefSeq, Dec 2015]
+
+LY6/PLAUR domain containing 1 (ENSG00000150551)    0.000752
+
+FZD10 antisense divergent transcript (ENSG00000250208)    0.000746
+
+
+NBL:
+
+sulfatase modifying factor 1 (ENSG00000144455)    0.000533
+This gene encodes an enzyme that catalyzes the hydrolysis of sulfate esters by oxidizing a cysteine residue in the substrate sulfatase to an active site 3-oxoalanine residue, which is also known as C-alpha-formylglycine. Mutations in this gene cause multiple sulfatase deficiency, a lysosomal storage disorder. Alternative splicing results in multiple transcript variants. [provided by RefSeq, Sep 2009]
+
+keratinocyte differentiation factor 1 (ENSG00000175707)    0.000533
+
+proline rich and Gla domain 1 (ENSG00000130962)    0.000533
+This gene encodes a vitamin K-dependent, gamma-carboxyglutamic acid (Gla)-containing, single-pass transmembrane protein. This protein contains a Gla domain at the N-terminus, preceded by a propeptide sequence required for post-translational gamma-carboxylation of specific glutamic acid residues by a vitamin K-dependent gamma-carboxylase. The C-terminus is proline-rich containing PPXY and PXXP motifs found in a variety of signaling and cytoskeletal proteins. This gene is highly expressed in the spinal cord. Several alternatively spliced transcript variants have been found for this gene. [provided by RefSeq, Mar 2010]
+
+paired like homeobox 2B (ENSG00000109132)    0.000533
+The DNA-associated protein encoded by this gene is a member of the paired family of homeobox proteins localized to the nucleus. The protein functions as a transcription factor involved in the development of several major noradrenergic neuron populations and the determination of neurotransmitter phenotype. The gene product is linked to enhancement of second messenger-mediated activation of the dopamine beta-hydroylase, c-fos promoters and several enhancers, including cyclic amp-response element and serum-response element. Expansion of a 20 amino acid polyalanine tract in this protein by 5-13 aa has been associated with congenital central hypoventilation syndrome. [provided by RefSeq, Jul 2016]
+NOTE: "Pleiotropic effect of common PHOX2B variants in Hirschsprung disease and neuroblastoma." (this is a paper)
+
+receptor accessory protein 2 (ENSG00000132563)    0.000500
+This gene encodes a member of the receptor expression enhancing protein family. Studies of a related gene in mouse suggest that the encoded protein is found in the cell membrane and enhances the function of sweet taste receptors. Alternative splicing results in multiple transcript variants. [provided by RefSeq, Nov 2012]
+
+methionyl-tRNA synthetase 1 (ENSG00000166986)    0.000500
+This gene encodes a member of the class I family of aminoacyl-tRNA synthetases. These enzymes play a critical role in protein biosynthesis by charging tRNAs with their cognate amino acids. The encoded protein is a component of the multi-tRNA synthetase complex and catalyzes the ligation of methionine to tRNA molecules. [provided by RefSeq, Jan 2011]
+
+DnaJ heat shock protein family (Hsp40) member C7 (ENSG00000168259)    0.000500
+This gene encodes a member of the DNAJ heat shock protein 40 family of proteins that is characterized by two N-terminal tetratricopeptide repeat domains and a C-terminal DNAJ domain. This protein binds the chaperone proteins heat shock proteins 70 and 90 in an ATP-dependent manner and may function as a co-chaperone. Pseudogenes of this gene are found on chromosomes 1 and 6. Alternate splicing results in multiple transcript variants.[provided by RefSeq, Oct 2009]
+
+ENSG00000227081    0.000500 --> not found
+
+Nedd4 family interacting protein 2 (ENSG00000102471)    0.000500
+
+tight junction protein 3 (ENSG00000105289)    0.000500
+The protein encoded by this gene is a member of the membrane-associated guanylate kinase-like (MAGUK) protein family which is characterized by members having multiple PDZ domains, a single SH3 domain, and a single guanylate kinase-like (GUK)-domain. In addition, members of the zonula occludens protein subfamily have an acidic domain, a basic arginine-rich region, and a proline-rich domain. The protein encoded by this gene plays a role in the linkage between the actin cytoskeleton and tight-junctions and also sequesters cyclin D1 at tight junctions during mitosis. Alternative splicing results in multiple transcript variants encoding distinct isoforms. This gene has a partial pseudogene on chromosome 1. [provided by RefSeq, May 2012]
+
+basigin (Ok blood group) (ENSG00000172270)    0.000500
+The protein encoded by this gene, basigin, is a plasma membrane protein that is important in spermatogenesis, embryo implantation, neural network formation, and tumor progression. Basigin is also a member of the immunoglobulin superfamily, ubiquitously expressed in various tissues. Multiple transcript variants encoding different isoforms have been found for this gene. [provided by RefSeq, May 2020]
+
+heterogeneous nuclear ribonucleoprotein K pseudogene 4 (ENSG00000243547)    0.000500
+
+ENSG00000244245    0.000500 --> not found
+
+
+AML:
+
+hyaluronidase 2 (ENSG00000068001)    0.000433
+This gene encodes a weak acid-active hyaluronidase. The encoded protein is similar in structure to other more active hyaluronidases. Hyaluronidases degrade hyaluronan, one of the major glycosaminoglycans of the extracellular matrix. Hyaluronan and fragments of hyaluronan are thought to be involved in cell proliferation, migration and differentiation. Although it was previously thought to be a lysosomal hyaluronidase that is active at a pH below 4, the encoded protein is likely a GPI-anchored cell surface protein. This hyaluronidase serves as a receptor for the oncogenic virus Jaagsiekte sheep retrovirus. The gene is one of several related genes in a region of chromosome 3p21.3 associated with tumor suppression. This gene encodes two alternatively spliced transcript variants which differ only in the 5' UTR.[provided by RefSeq, Mar 2010]
+
+olfactory receptor family 7 subfamily E member 14 pseudogene (ENSG00000184669)    0.000433
+Olfactory receptors interact with odorant molecules in the nose, to initiate a neuronal response that triggers the perception of a smell. The olfactory receptor proteins are members of a large family of G-protein-coupled receptors (GPCR) arising from single coding-exon genes. Olfactory receptors share a 7-transmembrane domain structure with many neurotransmitter and hormone receptors and are responsible for the recognition and G protein-mediated transduction of odorant signals. The olfactory receptor gene family is the largest in the genome. The nomenclature assigned to the olfactory receptor genes and proteins for this organism is independent of other organisms. [provided by RefSeq, Jul 2008]
+
+ERGIC and golgi 2 (ENSG00000087502)    0.000433
+ERGIC2, or PTX1, is a ubiquitously expressed nuclear protein that is downregulated in prostate carcinoma (Kwok et al., 2001 [PubMed 11445006]).[supplied by OMIM, Aug 2008]
+
+PDZ domain containing ring finger 3 (ENSG00000121440)    0.000433
+This gene encodes a member of the LNX (Ligand of Numb Protein-X) family of RING-type ubiquitin E3 ligases. This protein may function in vascular morphogenesis and the differentiation of adipocytes, osteoblasts and myoblasts. This protein may be targeted for degradation by the human papilloma virus E6 protein. Alternative splicing results in multiple transcript variants. [provided by RefSeq, Dec 2014]
+
+FA complementation group B (ENSG00000181544)    0.000433
+This gene encodes a member of the Fanconi anemia complementation group B. This protein is assembled into a nucleoprotein complex that is involved in the repair of DNA lesions. Mutations in this gene can cause chromosome instability and VACTERL syndrome with hydrocephalus. [provided by RefSeq, Apr 2016]
+
+laminin subunit gamma 2 (ENSG00000058085)    0.000433
+Laminins, a family of extracellular matrix glycoproteins, are the major noncollagenous constituent of basement membranes. They have been implicated in a wide variety of biological processes including cell adhesion, differentiation, migration, signaling, neurite outgrowth and metastasis. Laminins, composed of 3 non identical chains: laminin alpha, beta and gamma (formerly A, B1, and B2, respectively), have a cruciform structure consisting of 3 short arms, each formed by a different chain, and a long arm composed of all 3 chains. Each laminin chain is a multidomain protein encoded by a distinct gene. Several isoforms of each chain have been described. Different alpha, beta and gamma chain isomers combine to give rise to different heterotrimeric laminin isoforms which are designated by Arabic numerals in the order of their discovery, i.e. alpha1beta1gamma1 heterotrimer is laminin 1. The biological functions of the different chains and trimer molecules are largely unknown, but some of the chains have been shown to differ with respect to their tissue distribution, presumably reflecting diverse functions in vivo. This gene encodes the gamma chain isoform laminin, gamma 2. The gamma 2 chain, formerly thought to be a truncated version of beta chain (B2t), is highly homologous to the gamma 1 chain; however, it lacks domain VI, and domains V, IV and III are shorter. It is expressed in several fetal tissues but differently from gamma 1, and is specifically localized to epithelial cells in skin, lung and kidney. The gamma 2 chain together with alpha 3 and beta 3 chains constitute laminin 5 (earlier known as kalinin), which is an integral part of the anchoring filaments that connect epithelial cells to the underlying basement membrane. The epithelium-specific expression of the gamma 2 chain implied its role as an epithelium attachment molecule, and mutations in this gene have been associated with junctional epidermolysis bullosa, a skin disease characterized by blisters due to disruption of the epidermal-dermal junction. Two transcript variants resulting from alternative splicing of the 3' terminal exon, and encoding different isoforms of gamma 2 chain, have been described. The two variants are differentially expressed in embryonic tissues, however, the biological significance of the two forms is not known. Transcript variants utilizing alternative polyA_signal have also been noted in literature. [provided by RefSeq, Aug 2011]
+
+LLGL scribble cell polarity complex component 2 (ENSG00000073350)    0.000433
+The lethal (2) giant larvae protein of Drosophila plays a role in asymmetric cell division, epithelial cell polarity, and cell migration. This human gene encodes a protein similar to lethal (2) giant larvae of Drosophila. In fly, the protein's ability to localize cell fate determinants is regulated by the atypical protein kinase C (aPKC). In human, this protein interacts with aPKC-containing complexes and is cortically localized in mitotic cells. Alternative splicing results in multiple transcript variants encoding different isoforms. [provided by RefSeq, Jul 2008]
+
+POU class 3 homeobox 4 (ENSG00000196767)    0.000400
+This gene encodes a member of the POU-III class of neural transcription factors. This family member plays a role in inner ear development. The protein is thought to be involved in the mediation of epigenetic signals which induce striatal neuron-precursor differentiation. Mutations in this gene are associated with X chromosome-linked nonsyndromic mixed deafness. [provided by RefSeq, Dec 2012]
+
+agrin (ENSG00000188157)    0.000400
+This gene encodes one of several proteins that are critical in the development of the neuromuscular junction (NMJ), as identified in mouse knock-out studies. The encoded protein contains several laminin G, Kazal type serine protease inhibitor, and epidermal growth factor domains. Additional post-translational modifications occur to add glycosaminoglycans and disulfide bonds. In one family with congenital myasthenic syndrome affecting limb-girdle muscles, a mutation in this gene was found. Alternative splicing results in multiple transcript variants encoding different isoforms. [provided by RefSeq, Mar 2015]
+
+secretin receptor (ENSG00000080293)    0.000400
+The protein encoded by this gene is a G protein-coupled receptor and belongs to the glucagon-VIP-secretin receptor family. It binds secretin which is the most potent regulator of pancreatic bicarbonate, electrolyte and volume secretion. Secretin and its receptor are suggested to be involved in pancreatic cancer and autism. [provided by RefSeq, Jul 2008]
+
+adhesion G protein-coupled receptor F1 (ENSG00000153292)    0.000400
+
+LOC339192 (ENSG00000267121)    0.000400
+
+ADAM metallopeptidase with thrombospondin type 1 motif 9 (ENSG00000163638)    0.000400
+This gene encodes a member of the ADAMTS (a disintegrin and metalloproteinase with thrombospondin motifs) protein family. Members of the family share several distinct protein modules, including a propeptide region, a metalloproteinase domain, a disintegrin-like domain, and a thrombospondin type 1 (TS) motif. Individual members of this family differ in the number of C-terminal TS motifs, and some have unique C-terminal domains. Members of the ADAMTS family have been implicated in the cleavage of proteoglycans, the control of organ shape during development, and the inhibition of angiogenesis. This gene is localized to chromosome 3p14.3-p14.2, an area known to be lost in hereditary renal tumors. Alternative splicing results in multiple transcript variants encoding different isoforms that may undergo similar proteolytic processing. [provided by RefSeq, Jan 2016]
+
+plakophilin 4 (ENSG00000144283)    0.000400
+Armadillo-like proteins are characterized by a series of armadillo repeats, first defined in the Drosophila 'armadillo' gene product, that are typically 42 to 45 amino acids in length. These proteins can be divided into subfamilies based on their number of repeats, their overall sequence similarity, and the dispersion of the repeats throughout their sequences. Members of the p120(ctn)/plakophilin subfamily of Armadillo-like proteins, including CTNND1, CTNND2, PKP1, PKP2, PKP4, and ARVCF. PKP4 may be a component of desmosomal plaque and other adhesion plaques and is thought to be involved in regulating junctional plaque organization and cadherin function. Multiple transcript variants encoding different isoforms have been found for this gene. [provided by RefSeq, Feb 2015]
+
+solute carrier family 4 member 11 (ENSG00000088836)    0.000400
+This gene encodes a voltage-regulated, electrogenic sodium-coupled borate cotransporter that is essential for borate homeostasis, cell growth and cell proliferation. Mutations in this gene have been associated with a number of endothelial corneal dystrophies including recessive corneal endothelial dystrophy 2, corneal dystrophy and perceptive deafness, and Fuchs endothelial corneal dystrophy. Multiple transcript variants encoding different isoforms have been described. [provided by RefSeq, Mar 2010]
+
+claudin 8 (ENSG00000156284)    0.000400
+This gene encodes a member of the claudin family. Claudins are integral membrane proteins and components of tight junction strands. Tight junction strands serve as a physical barrier to prevent solutes and water from passing freely through the paracellular space between epithelial or endothelial cell sheets, and also play critical roles in maintaining cell polarity and signal transductions. This protein plays important roles in the paracellular cation barrier of the distal renal tubule, and in the paracellular barrier to prevent sodium back-leakage in distal colon. Differential expression of this gene has been observed in colorectal carcinoma and renal cell tumors, and along with claudin-7, is an immunohistochemical marker for the differential diagnosis of chromophobe renal cell carcinoma and renal oncocytoma.[provided by RefSeq, May 2010]
+
+ENSG00000236533    0.000400 --> not found
+
+ADPGK antisense RNA 1 (ENSG00000260898)    0.000400
+
+nucleolar protein 3 (ENSG00000140939)    0.000400
+This gene encodes an anti-apoptotic protein that has been shown to down-regulate the enzyme activities of caspase 2, caspase 8 and tumor protein p53. Multiple transcript variants encoding different isoforms have been found for this gene. [provided by RefSeq, Jun 2010]
+NOTE: "Expression of ARC (apoptosis repressor with caspase recruitment domain), an antiapoptotic protein, is strongly prognostic in AML." (this is a paper)
