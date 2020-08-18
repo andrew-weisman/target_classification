@@ -50,4 +50,10 @@ for file in $(ls | grep -v MANIFEST.txt); do echo $file | awk -v FS="." '{print 
 
 shows that, ostensibly, there are 2,481 unique expression files (independent of normalization). This is just based on the filenames, and is not actually correct.
 
+Start an interactive allocation, using, e.g.,
+
+```bash
+sinteractive --mem=40g
+```
+
 Go through the Python Jupyter notebook `/data/BIDS-HPC/private/projects/dmi2/checkout/main.ipynb`.
