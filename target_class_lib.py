@@ -441,9 +441,11 @@ def remove_bad_samples(df_samples, nstd=2):
 
     # Import relevant library
     import numpy as np
+    import matplotlib.pyplot as plt
 
     # Generate the initial set of histograms on the numerical data in the samples dataframe
-    ax_hist = df_samples.hist(figsize=(12,8))
+    _, ax = plt.subplots(figsize=(12,8), facecolor='w')
+    ax_hist = df_samples.hist(ax=ax)
 
     # "Constants" based on viewing the first set of histograms above so that we can figure out which ones to use to filter the data
     columns = ['average base quality', 'proportion_base_mismatch', 'proportion_reads_mapped']
@@ -496,7 +498,8 @@ def remove_bad_samples(df_samples, nstd=2):
     # print('For the time being though, we are leaving the data untouched!')
 
     # Plot the same histograms using the filtered samples to show what would happen if we applied the calculated cutoffs
-    _ = df_samples.iloc[valid_ind,:].hist(figsize=(12,8))
+    _, ax = plt.subplots(figsize=(12,8), facecolor='w')
+    _ = df_samples.iloc[valid_ind,:].hist(ax=ax)
 
     return(df_samples.iloc[valid_ind,:], valid_ind)
 
@@ -539,6 +542,7 @@ def eda_labels(df_samples):
 
     # Import relevant library
     import random
+    import matplotlib.pyplot as plt
 
     # Add the index "column" as an actual column to the dataframe so we can analyze the index column in the same manner as the other columns
     df_samples[df_samples.index.name] = df_samples.index
@@ -555,7 +559,8 @@ def eda_labels(df_samples):
     rand_index = random.randrange(nsamples)
 
     # Plot histograms of the numeric data
-    _ = df_samples.hist(figsize=(12,8))
+    _, ax = plt.subplots(figsize=(12,8), facecolor='w')
+    _ = df_samples.hist(ax=ax)
 
     # Determine the non-numeric columns
     non_numeric_cols = df_samples.select_dtypes(exclude='number').columns
@@ -1082,7 +1087,7 @@ def plot_pca_and_tsne(data_directory, dataset_name, transformation_name='varianc
     color_palette = sns.color_palette("hls", nclasses)
 
     # Plot and save the PCA
-    fig = plt.figure(figsize=(12,7.5))
+    fig = plt.figure(figsize=(12,7.5), facecolor='w')
     ax = sns.scatterplot(x=pca_res[:,0], y=pca_res[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=alpha, markers=marker_list, edgecolor='k')
     ax.legend(bbox_to_anchor=(1,1))
     ax.set_title('PCA - ' + transformation_name + ' transformation')
@@ -1094,7 +1099,7 @@ def plot_pca_and_tsne(data_directory, dataset_name, transformation_name='varianc
     tsne_res = tsne.fit_transform(X)
 
     # Plot and save the tSNE analysis
-    fig = plt.figure(figsize=(12,7.5))
+    fig = plt.figure(figsize=(12,7.5), facecolor='w')
     ax = sns.scatterplot(x=tsne_res[:,0], y=tsne_res[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=alpha, markers=marker_list, edgecolor='k')
     ax.legend(bbox_to_anchor=(1,1))
     ax.set_title('tSNE - ' + transformation_name + ' transformation')
@@ -1207,7 +1212,7 @@ def plot_unsupervised_analysis(results, y, figsize=(12,7.5), alpha=1, gray_index
 
     # Plot results
     if ax is None:
-        _, ax = plt.subplots(figsize=figsize)
+        _, ax = plt.subplots(figsize=figsize, facecolor='w')
     #ax = sns.scatterplot(x=results[:,0], y=results[:,1], hue=y, style=y, palette=color_palette, legend="full", alpha=alpha, markers=marker_list, edgecolor='k')
     ax = sns.scatterplot(x=results[:,0], y=results[:,1], hue=y, style=y, palette=color_palette, legend=legend, alpha=(0.2 if gray_indexes is not None else alpha), markers=marker_list, edgecolor='k', ax=ax)
 
@@ -1280,7 +1285,7 @@ def explore_sample_size(X, y, tsne_res, n_range=range(100,601,200)):
     nn = len(n_values)
 
     # Initialize the figure
-    fig, axs = plt.subplots(nrows=nn, ncols=2, figsize=(base_figsize[0], base_figsize[1]*nn), squeeze=False)
+    fig, axs = plt.subplots(nrows=nn, ncols=2, figsize=(base_figsize[0], base_figsize[1]*nn), squeeze=False, facecolor='w')
 
     # For each sampling size...
     for n_ind, n in enumerate(n_values):
@@ -1375,7 +1380,7 @@ def plot_accuracy_vs_sample_size(accuracies, possible_n, study_name):
     means = accuracies.mean(axis=0)
 
     # Plot the mean accuracy vs. the sampling sizes with error bars indicating the minimum and maximum accuracies over all the trials
-    _, ax = plt.subplots(figsize=(10,6))
+    _, ax = plt.subplots(figsize=(10,6), facecolor='w')
     _ = ax.errorbar(x=possible_n, y=means, yerr=np.row_stack((means-accuracies.min(axis=0), accuracies.max(axis=0)-means)), fmt='*-', ecolor='red', capsize=4)
     ax.grid(True)
     ax.set_xlabel('Sample size for each class')
