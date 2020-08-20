@@ -1388,23 +1388,28 @@ def plot_accuracy_vs_sample_size(accuracies, possible_n, study_name):
     ax.set_title('Overall accuracy on input dataset - ' + study_name)
 
 
-# Determine the genes in decreasing order of average feature importance
+# Determine the genes in decreasing order of average feature importance, calculating all necessary importance metrics along the way
 def calculate_average_feature_importance(feature_names, rnd_clf_holder, num_last_sample_sizes=10):
 
-    # Sample call: calculate_average_feature_importance(X2.columns, rnd_clf_holder)
+    # Sample call: calculate_average_feature_importance(X2.columns, rnd_clf_holder, num_last_sample_sizes=10)
 
     # Import relevant libraries
     import numpy as np
     import pandas as pd
+
+    # Constant
+    #tol = 1e-8
+    tol = 1e-16
     
     # Get the big numpy array of feature importances
-    importances = np.zeros((len(feature_names), len(rnd_clf_holder), len(rnd_clf_holder[0])))
+    n_features = len(feature_names)
+    importances = np.zeros((n_features, len(rnd_clf_holder), len(rnd_clf_holder[0])))
     for itrial, rnd_clf_holder_inside in enumerate(rnd_clf_holder): # ntrials of these
         for isample_size, model_data in enumerate(rnd_clf_holder_inside): # len(possible_n) of these; model_data is [itrial, iin, n, y_bal, clf]
             importances[:,itrial,isample_size] = model_data[4].feature_importances_
 
     # Save the full importances holder
-    importances_full = importances.copy()
+    #importances_full = importances.copy()
 
     # Average over the trials and the last num_last_sample_sizes sample sizes
     importances = importances[:,:,-num_last_sample_sizes:].mean(axis=(1,2))
@@ -1412,7 +1417,55 @@ def calculate_average_feature_importance(feature_names, rnd_clf_holder, num_last
     # Sort the importances in decreasing order
     order = (-importances).argsort(axis=0)
 
-    # Create a Pandas series of the average importances with the corresponding gene names as indexes in descending order, removing the version numbers from the Ensembl gene IDs
-    important_genes = pd.Series(data=importances[order], index=[x.split('.')[0] for x in feature_names[order]], name='score')
+    # Initialize the arrays that will go into the final dataframe containing the importance information
+    x = importances[order]
+    x_copy = x.copy()
+    place_arr = np.zeros((n_features,), dtype=object)
+    norm_score_arr = np.zeros((n_features,), dtype=float)
+    num_in_rank_arr = np.zeros((n_features,), dtype=int)
+    raw_score_arr = np.zeros((n_features,), dtype=float)
 
-    return(important_genes, importances_full)
+    # Keep just the importance scores that are not zero
+    x = x[np.abs(x)>=tol]
+
+    # Obtain the indexes of where the feature score changes
+    diffs = x[1:] - x[:-1]
+    rank_changed_loc = np.append(np.where((np.abs(diffs)>=tol))[0], len(x)-1)
+
+    # For each location at which the score changes...
+    start_ind = 0
+    place = 1
+    for loc in rank_changed_loc:
+
+        # Determine the last range index for the current set of continuous scores
+        stop_ind = loc + 1
+
+        # Count the number of features having the current score
+        num_in_rank = stop_ind - start_ind
+
+        # Get the current score for the set of features having this score (I don't have to do it this way, but it is technically the fairest way to do it)
+        raw_score = x[start_ind:stop_ind].mean()
+
+        # Normalize this score so that the largest score for this dataset is 1 (and the smallest is zero)
+        norm_score = raw_score / x[0] # can divide by the first element since they're ordered in decreasing order and hence the first element is the largest
+
+        # Prepend 't-' to the rank if there are multiple features having this score in order to indicate a 'tie'
+        tie_string = ('t-' if num_in_rank>1 else '')
+
+        # Set the corresponding elements in the arrays
+        print('place={},\tnorm_score={:4.2f}, num_in_rank={}, raw_score={:7.5f}, start_ind={}, stop_ind={}'.format(tie_string+str(place), norm_score, num_in_rank, raw_score, start_ind, stop_ind))
+        place_arr[start_ind:stop_ind] = tie_string + str(place)
+        norm_score_arr[start_ind:stop_ind] = norm_score
+        num_in_rank_arr[start_ind:stop_ind] = num_in_rank
+        raw_score_arr[start_ind:stop_ind] = raw_score
+
+        # Update the starting index and the place        
+        start_ind = stop_ind
+        place = place + 1
+
+    # Create a Pandas dataframe including the average importances (in "original score") with the corresponding gene names as indexes in descending order, removing the version numbers from the Ensembl gene IDs
+    #important_genes = pd.Series(data=importances[order], index=[x.split('.')[0] for x in feature_names[order]], name='score')
+    important_genes = pd.DataFrame(data={'place': place_arr, 'norm_score': norm_score_arr, 'num_in_rank': num_in_rank_arr, 'raw_score': raw_score_arr, 'original score': x_copy}, index=[x.split('.')[0] for x in feature_names[order]])
+
+    #return(important_genes, importances_full)
+    return(important_genes)
