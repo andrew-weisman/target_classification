@@ -53,7 +53,7 @@ shows that, ostensibly, there are 2,481 unique expression files (independent of 
 Start an interactive allocation, using, e.g.,
 
 ```bash
-sinteractive --mem=40g
+sinteractive --mem=40g # --mem=20g may be fine
 ```
 
-Go through the Python Jupyter notebook `/data/BIDS-HPC/private/projects/dmi2/checkout/main.ipynb`.
+Go through the Python Jupyter notebook `/data/BIDS-HPC/private/projects/dmi2/checkout/main.ipynb`. The Conda environment I used was `/data/weismanal/miniconda3/envs/r_env` and I have copied this to `/data/BIDS-HPC/public/software/conda/envs/r_env`. However, the default `python` and `R` modules on Biowulf should work (`module load python R`).
