@@ -1389,7 +1389,7 @@ def plot_accuracy_vs_sample_size(accuracies, possible_n, study_name):
 
 
 # Determine the genes in decreasing order of average feature importance, calculating all necessary importance metrics along the way
-def calculate_average_feature_importance(feature_names, rnd_clf_holder, num_last_sample_sizes=10):
+def calculate_average_feature_importance(feature_names, rnd_clf_holder, num_last_sample_sizes=10, do_printing=False):
 
     # Sample call: calculate_average_feature_importance(X2.columns, rnd_clf_holder, num_last_sample_sizes=10)
 
@@ -1453,7 +1453,8 @@ def calculate_average_feature_importance(feature_names, rnd_clf_holder, num_last
         tie_string = ('t-' if num_in_rank>1 else '')
 
         # Set the corresponding elements in the arrays
-        print('place={},\tnorm_score={:4.2f}, num_in_rank={}, raw_score={:7.5f}, start_ind={}, stop_ind={}'.format(tie_string+str(place), norm_score, num_in_rank, raw_score, start_ind, stop_ind))
+        if do_printing:
+            print('place={},\tnorm_score={:4.2f}, num_in_rank={}, raw_score={:7.5f}, start_ind={}, stop_ind={}'.format(tie_string+str(place), norm_score, num_in_rank, raw_score, start_ind, stop_ind))
         place_arr[start_ind:stop_ind] = tie_string + str(place)
         norm_score_arr[start_ind:stop_ind] = norm_score
         num_in_rank_arr[start_ind:stop_ind] = num_in_rank
