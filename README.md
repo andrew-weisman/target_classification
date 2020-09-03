@@ -56,4 +56,4 @@ Start an interactive allocation, using, e.g.,
 sinteractive --mem=40g # --mem=20g may be fine
 ```
 
-Go through the Python Jupyter notebook `/data/BIDS-HPC/private/projects/dmi2/checkout/main.ipynb`. All required libraries are installed in the default `Python` and `R` modules on Biowulf; just do `module load python R`. (The Conda environment I used was `/data/weismanal/miniconda3/envs/r_env` and I have copied this to `/data/BIDS-HPC/public/software/conda/envs/r_env` [as a quick test instead of using `conda install...`], but there appears to be hardcoded paths from my personal directory; just use `module load python R`.)
+Go through the Python Jupyter notebook `/data/BIDS-HPC/private/projects/dmi2/checkout/main.ipynb`. Use the `conda` environment `/data/BIDS-HPC/public/software/conda/envs/r_env`. (Note this environment contains `pandas` version `1.1.0`, whereas Biowulf's default `python` module has `pandas` version `0.24.2`, which is insufficient.) See [here](environment_info.md) for more notes on the environment.
